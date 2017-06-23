@@ -182,6 +182,49 @@ public struct DoubleWidth<Base : FixedWidthInteger> :
     }
   }
 
+  public struct Words: RandomAccessCollection {
+    public typealias Indices = CountableRange<Int>
+
+    public var _high: Base.Words
+    public var _low: Base.Magnitude.Words
+
+    public init(_ value: DoubleWidth) {
+      // multiples of word-size only
+      if UInt.bitWidth % Base.bitWidth != 0 &&
+        Base.bitWidth % UInt.bitWidth != 0 {
+        fatalError("Access to words is not supported on this type")
+      }
+      self._high = value._storage.high.words
+      self._low = value._storage.low.words
+    }
+
+    public var startIndex: Int {
+      return 0
+    }
+
+    public var endIndex: Int {
+      return Base.bitWidth < UInt.bitWidth ? 1 :
+        Int(_high.count) + Int(_low.count)
+    }
+
+    public subscript(position: Int) -> UInt {
+      if Base.bitWidth < UInt.bitWidth {
+        _precondition(position == 0, "Index out of range")
+        return _low[_low.startIndex] |
+          (_high[_high.startIndex] << numericCast(Base.bitWidth))
+      } else if position < _low.count {
+        return _low[_low.index(_low.startIndex, offsetBy: numericCast(position))]
+      } else {
+        // TODO: move to Int128 just like init(_builtinIntegerLiteral:) ?
+        return _high[_high.index(_high.startIndex, offsetBy: numericCast(position - numericCast(_low.count)))]
+      }
+    }
+  }
+
+  public var words: Words {
+    return Words(self)
+  }
+
   public static var isSigned: Bool {
     return Base.isSigned
   }
