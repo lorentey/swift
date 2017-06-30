@@ -1444,6 +1444,7 @@ public protocol BinaryInteger :
   // FIXME: Remove once Words has explicit constraints.
   /// Returns a type-erased iterator into the words of this binary integer.
   func _wordsIterator() -> AnyIterator<UInt>
+  var _lowUWord: UInt { get }
 
   /// The number of bits in the current binary representation of this value.
   ///
@@ -1880,6 +1881,9 @@ extension BinaryInteger where Words : Collection, Words.Element == UInt {
   public func _wordsIterator() -> AnyIterator<UInt> {
     return AnyIterator<UInt>(self.words.makeIterator())
   }
+  
+  // FIXME(integers): Remove once Words has explicit constraints.
+  public var _lowUWord: UInt { return words.first ?? 0 }
 }
 
 //===----------------------------------------------------------------------===//
@@ -2297,12 +2301,12 @@ ${unsafeOperationComment(x.operator)}
 
   @inline(__always)
   public init<T : BinaryInteger>(extendingOrTruncating source: T) {
-    // FIXME(integers): Use `words` instead of `_wordsIterator()`
-    if Self.bitWidth <= ${word_bits} {
-      self = Self.init(_truncatingBits: source._wordsIterator().next() ?? 0)
+    if Self.bitWidth <= ${word_bits} || source.bitWidth <= ${word_bits} {
+      self = Self.init(_truncatingBits: source._lowUWord)
     }
     else {
-      // FIXME: simplify when we can iterate in reverse
+      // FIXME(integers): Use `words` instead of `_wordsIterator()`
+      // FIXME(integers): simplify when we can iterate in reverse
       let neg = source < (0 as T)
       var result: Self = neg ? ~0 : 0
       let words = source._wordsIterator()
@@ -2844,6 +2848,13 @@ ${assignmentOperatorComment(x.operator, True)}
       Builtin.${truncOrExt}OrBitCast_Int${word_bits}_Int${bits}(bits._value))
   }
 
+% if bits <= word_bits:
+  @_transparent
+  public init<T : BinaryInteger>(extendingOrTruncating source: T) {
+    self.init(_truncatingBits: source._lowUWord)
+  }
+% end
+  
   public typealias Magnitude = ${U}${Self}
 
 % if signed:
