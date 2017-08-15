@@ -1970,6 +1970,8 @@ public protocol FixedWidthInteger :
   BinaryInteger, LosslessStringConvertible, _BitwiseOperations
   where Magnitude : FixedWidthInteger
 {
+  associatedtype Words = DefaultWords<Self>
+
   /// The number of bits used for the underlying binary representation of
   /// values of this type.
   ///
@@ -2201,6 +2203,56 @@ ${assignmentOperatorComment(x.operator, False)}
   }
 
   % end
+}
+
+//===----------------------------------------------------------------------===//
+//===--- DefaultWords -----------------------------------------------------===//
+//===----------------------------------------------------------------------===//
+
+/// A collection containing the words of the binary representation
+/// of an arbitrary fixed-width integer type, in order from the least
+/// significant to most significant.
+///
+/// The words of negative values are in two's complement representation,
+/// regardless of the integer type's underlying implementation.
+public struct DefaultWords<Integer: FixedWidthInteger> : RandomAccessCollection {
+  public typealias Indices = CountableRange<Int>
+  public typealias SubSequence = RandomAccessSlice<DefaultWords<Integer>>
+
+  var _value: Integer
+
+  public init(_ value: Integer) {
+    self._value = value
+  }
+
+  public var count: Int {
+    return (Integer.bitWidth + ${word_bits} - 1) / ${word_bits}
+  }
+
+  public var startIndex: Int { return 0 }
+
+  public var endIndex: Int { return count }
+
+  public subscript(position: Int) -> UInt {
+    get {
+      _precondition(position >= 0, "Negative word index")
+      _precondition(position < endIndex, "Word index out of range")
+      let shift = UInt(position._value) &* ${word_bits}
+      _sanityCheck(shift < UInt(_value.bitWidth._value))
+      return (_value &>> Integer(_truncatingBits: shift))._lowWord
+    }
+  }
+}
+
+extension FixedWidthInteger where Words == DefaultWords<Self> {
+  /// A collection containing the words of this value's binary
+  /// representation, in order from the least significant to most significant.
+  ///
+  /// Negative values are returned in two's complement representation,
+  /// regardless of the type's underlying implementation.
+  public var words: Words {
+    return Words(self)
+  }
 }
 
 //===----------------------------------------------------------------------===//
@@ -2968,54 +3020,7 @@ ${assignmentOperatorComment(x.operator, True)}
       )._lowWord._value)
   }
 
-% if bits <= word_bits:
-  public typealias Words = CollectionOfOne<UInt>
-% else:  
-  public struct Words : RandomAccessCollection {
-    public typealias Indices = CountableRange<Int>
-    public typealias SubSequence = RandomAccessSlice<${Self}.Words>
-
-    var _value: ${Self}
-
-    public init(_ value: ${Self}) {
-      self._value = value
-    }
-
-    public var count: Int {
-      return (${bits} + ${word_bits} - 1) / ${word_bits}
-    }
-
-    public var startIndex: Int { return 0 }
-
-    public var endIndex: Int { return count }
-
-    public subscript(position: Int) -> UInt {
-      get {
-        _precondition(position >= 0, "Negative word index")
-        _precondition(position < endIndex, "Word index out of range")
-        let shift = UInt(position._value) &* ${word_bits}
-        _sanityCheck(shift < UInt(_value.bitWidth._value))
-        return (_value &>> ${Self}(_truncatingBits: shift))._lowWord
-      }
-    }
-  }
-% end
-
-  /// A collection containing the words of this value's binary
-  /// representation, in order from the least significant to most significant.
-% if signed:
-  ///
-  /// Negative values are returned in two's complement representation,
-  /// regardless of the type's underlying implementation.
-% end
-  @_transparent
-  public var words: Words {
-    % if bits <= word_bits:
-    return Words(self._lowWord)
-    % else:
-    return Words(self)
-    % end
-  }
+  public typealias Words = DefaultWords<${Self}>
 
   @_transparent
   public // transparent
