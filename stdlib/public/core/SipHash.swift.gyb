@@ -105,7 +105,7 @@ internal enum _SipHashDetail {
 
 @_fixed_layout // FIXME(sil-serialize-all)
 public // @testable
-struct ${Self} {
+struct ${Self} : _Hasher {
   // "somepseudorandomlygeneratedbytes"
   @_versioned
   internal var v0: UInt64 = 0x736f6d6570736575
@@ -144,6 +144,12 @@ struct ${Self} {
   public // @testable
   mutating func append(_ data: UnsafeRawPointer, byteCount: Int) {
     _append_alwaysInline(data, byteCount: byteCount)
+  }
+
+  @_inlineable // FIXME(sil-serialize-all)
+  public // @testable
+  mutating func append(_ buffer: UnsafeRawBufferPointer) {
+    _append_alwaysInline(buffer.baseAddress!, byteCount: buffer.count)
   }
 
   // FIXME(ABI)#63 (UnsafeRawBufferPointer): Use UnsafeRawBufferPointer.
@@ -224,14 +230,14 @@ struct ${Self} {
 
   @_inlineable // FIXME(sil-serialize-all)
   public // @testable
-  mutating func finalizeAndReturnHash() -> UInt64 {
-    return _finalizeAndReturnHash_alwaysInline()
+  mutating func finalizeAndReturnRawHash() -> UInt64 {
+    return _finalizeAndReturnRawHash_alwaysInline()
   }
 
   @_inlineable // FIXME(sil-serialize-all)
   @_versioned
   @inline(__always)
-  internal mutating func _finalizeAndReturnHash_alwaysInline() -> UInt64 {
+  internal mutating func _finalizeAndReturnRawHash_alwaysInline() -> UInt64 {
     if let finalizedHash = finalizedHash {
       return finalizedHash
     }
@@ -258,9 +264,8 @@ struct ${Self} {
   }
 
   @_inlineable // FIXME(sil-serialize-all)
-  @_versioned // FIXME(sil-serialize-all)
-  internal mutating func _finalizeAndReturnIntHash() -> Int {
-    let hash: UInt64 = finalizeAndReturnHash()
+  public mutating func finalizeAndReturnHash() -> Int {
+    let hash: UInt64 = finalizeAndReturnRawHash()
 #if arch(i386) || arch(arm)
     return Int(truncatingIfNeeded: hash)
 #elseif arch(x86_64) || arch(arm64) || arch(powerpc64) || arch(powerpc64le) || arch(s390x)
@@ -293,7 +298,7 @@ struct ${Self} {
   ) -> UInt64 {
     var context = ${Self}(key: key)
     context._append_alwaysInline(data, byteCount: dataByteCount)
-    return context._finalizeAndReturnHash_alwaysInline()
+    return context._finalizeAndReturnRawHash_alwaysInline()
   }
 }
 % end

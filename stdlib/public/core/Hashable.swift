@@ -93,6 +93,24 @@ public protocol Hashable : Equatable {
   /// Hash values are not guaranteed to be equal across different executions of
   /// your program. Do not save hash values to use during a future execution.
   var hashValue: Int { get }
+
+  func _hash<Hasher : _Hasher>(into hasher: inout Hasher)
+}
+
+public protocol _Hasher {
+  mutating func append(_ data: UnsafeRawBufferPointer)
+  mutating func append(_ data: Int)
+  mutating func append(_ data: UInt)
+  mutating func append(_ data: Int64)
+  mutating func append(_ data: UInt64)
+  mutating func append(_ data: Int32)
+  mutating func append(_ data: UInt32)
+}
+
+extension Hashable {
+  public func _hash<Hasher : _Hasher>(into hasher: inout Hasher) {
+    hasher.append(self.hashValue)
+  }
 }
 
 public enum _RuntimeHelpers {}

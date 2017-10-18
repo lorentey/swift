@@ -50,7 +50,7 @@ extension Unicode {
         hasher.append(element)
       }
     }
-    return hasher._finalizeAndReturnIntHash()
+    return hasher.finalizeAndReturnHash()
   }
 
   // FIXME: cannot be marked @_versioned. See <rdar://problem/34438258>
@@ -78,7 +78,7 @@ extension Unicode {
         hasher.append(element)
       }
     }
-    return hasher._finalizeAndReturnIntHash()
+    return hasher.finalizeAndReturnHash()
   }
 }
 
