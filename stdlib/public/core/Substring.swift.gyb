@@ -414,7 +414,12 @@ extension StringProtocol {
 extension StringProtocol {
   @_inlineable // FIXME(sil-serialize-all)
   public var hashValue : Int {
-    return self._ephemeralString.hashValue
+    return _hashValue(for: self)
+  }
+
+  @_inlineable // FIXME(sil-serialize-all)
+  public func _hash<Hasher : _Hasher>(into hasher: inout Hasher) {
+    self._ephemeralString._hash(into: &hasher)
   }
 }
 

@@ -821,6 +821,11 @@ public struct ${Self}<Pointee>
     return Int(bitPattern: self)
   }
 
+  @_inlineable // FIXME(sil-serialize-all)
+  public func _hash<Hasher : _Hasher>(into hasher: inout Hasher) {
+    hasher.append(Int(bitPattern: self))
+  }
+
   /// Returns a pointer to the next consecutive instance.
   ///
   /// The resulting pointer must be within the bounds of the same allocation as

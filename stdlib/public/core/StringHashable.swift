@@ -36,11 +36,11 @@ extension Unicode {
   // FIXME: cannot be marked @_versioned. See <rdar://problem/34438258>
   // @_inlineable // FIXME(sil-serialize-all)
   // @_versioned // FIXME(sil-serialize-all)
-  internal static func hashASCII(
-    _ string: UnsafeBufferPointer<UInt8>
-  ) -> Int {
+  internal static func hashASCII<Hasher : _Hasher>(
+    _ string: UnsafeBufferPointer<UInt8>,
+    into hasher: inout Hasher
+  ) {
     let collationTable = _swift_stdlib_unicode_getASCIICollationTable()
-    var hasher = _SipHash13Context(key: _Hashing.secretKey)
     for c in string {
       _precondition(c <= 127)
       let element = collationTable[Int(c)]
@@ -50,21 +50,20 @@ extension Unicode {
         hasher.append(element)
       }
     }
-    return hasher.finalizeAndReturnHash()
   }
 
   // FIXME: cannot be marked @_versioned. See <rdar://problem/34438258>
   // @_inlineable // FIXME(sil-serialize-all)
   // @_versioned // FIXME(sil-serialize-all)
-  internal static func hashUTF16(
-    _ string: UnsafeBufferPointer<UInt16>
-  ) -> Int {
+  internal static func hashUTF16<Hasher : _Hasher>(
+    _ string: UnsafeBufferPointer<UInt16>,
+    into hasher: inout Hasher
+  ) {
     let collationIterator = _swift_stdlib_unicodeCollationIterator_create(
       string.baseAddress!,
       UInt32(string.count))
     defer { _swift_stdlib_unicodeCollationIterator_delete(collationIterator) }
 
-    var hasher = _SipHash13Context(key: _Hashing.secretKey)
     while true {
       var hitEnd = false
       let element =
@@ -78,47 +77,44 @@ extension Unicode {
         hasher.append(element)
       }
     }
-    return hasher.finalizeAndReturnHash()
   }
 }
 
 @_versioned // FIXME(sil-serialize-all)
 @inline(never) // Hide the CF dependency
-internal func _hashString(_ string: String) -> Int {
+internal func _hashString<Hasher : _Hasher>(
+  _ string: String,
+  into hasher: inout Hasher
+) {
   let core = string._core
 #if _runtime(_ObjC)
-    // Mix random bits into NSString's hash so that clients don't rely on
-    // Swift.String.hashValue and NSString.hash being the same.
-#if arch(i386) || arch(arm)
-    let hashOffset = Int(bitPattern: 0x88dd_cc21)
-#else
-    let hashOffset = Int(bitPattern: 0x429b_1266_88dd_cc21)
-#endif
   // If we have a contiguous string then we can use the stack optimization.
   let isASCII = core.isASCII
   if core.hasContiguousStorage {
     if isASCII {
-      return hashOffset ^ _stdlib_CFStringHashCString(
-                              OpaquePointer(core.startASCII), core.count)
+      hasher.append(_stdlib_CFStringHashCString(OpaquePointer(core.startASCII),
+          core.count))
     } else {
       let stackAllocated = _NSContiguousString(core)
-      return hashOffset ^ stackAllocated._unsafeWithNotEscapedSelfPointer {
-        return _stdlib_NSStringHashValuePointer($0, false)
+      stackAllocated._unsafeWithNotEscapedSelfPointer {
+        hasher.append(_stdlib_NSStringHashValuePointer($0, false))
       }
     }
   } else {
     let cocoaString = unsafeBitCast(
       string._bridgeToObjectiveCImpl(), to: _NSStringCore.self)
-    return hashOffset ^ _stdlib_NSStringHashValue(cocoaString, isASCII)
+    hasher.append(_stdlib_NSStringHashValue(cocoaString, isASCII))
   }
 #else
   if let asciiBuffer = core.asciiBuffer {
-    return Unicode.hashASCII(UnsafeBufferPointer(
-      start: asciiBuffer.baseAddress!,
-      count: asciiBuffer.count))
+    return Unicode.hashASCII(
+      UnsafeBufferPointer(
+        start: asciiBuffer.baseAddress!, count: asciiBuffer.count),
+      into: &hasher)
   } else {
     return Unicode.hashUTF16(
-      UnsafeBufferPointer(start: core.startUTF16, count: core.count))
+      UnsafeBufferPointer(start: core.startUTF16, count: core.count),
+      into: &hasher)
   }
 #endif
 }
@@ -131,7 +127,12 @@ extension String : Hashable {
   /// your program. Do not save hash values to use during a future execution.
   @_inlineable // FIXME(sil-serialize-all)
   public var hashValue: Int {
-    return _hashString(self)
+    return _hashValue(for: self)
+  }
+
+  @_inlineable // FIXME(sil-serialize-all)
+  public func _hash<Hasher : _Hasher>(into hasher: inout Hasher) {
+    _hashString(self, into: &hasher)
   }
 }
 

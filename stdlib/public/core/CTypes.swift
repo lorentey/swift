@@ -155,6 +155,11 @@ public struct OpaquePointer : Hashable {
   public var hashValue: Int {
     return Int(Builtin.ptrtoint_Word(_rawValue))
   }
+
+  @_inlineable // FIXME(sil-serialize-all)
+  public func _hash<Hasher : _Hasher>(into hasher: inout Hasher) {
+    hasher.append(Int(bitPattern: self))
+  }
 }
 
 extension OpaquePointer : CustomDebugStringConvertible {

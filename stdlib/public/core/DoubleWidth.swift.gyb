@@ -627,7 +627,13 @@ binaryOperators = [
 
   @_inlineable // FIXME(sil-serialize-all)
   public var hashValue: Int {
-    return _mixInt(high.hashValue) ^ low.hashValue
+    return _hashValue(for: self)
+  }
+
+  @_inlineable // FIXME(sil-serialize-all)
+  public func _hash<Hasher : _Hasher>(into hasher: inout Hasher) {
+    low._hash(into: &hasher)
+    high._hash(into: &hasher)
   }
 
   @_inlineable // FIXME(sil-serialize-all)

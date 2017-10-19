@@ -107,6 +107,14 @@ public protocol _Hasher {
   mutating func append(_ data: UInt32)
 }
 
+@_inlineable // FIXME(sil-serialize-all)
+@_versioned
+internal func _hashValue<T : Hashable>(for value: T) -> Int {
+  var hasher = _SipHash13Context(key: _Hashing.secretKey)
+  value._hash(into: &hasher)
+  return hasher.finalizeAndReturnHash()
+}
+
 extension Hashable {
   public func _hash<Hasher : _Hasher>(into hasher: inout Hasher) {
     hasher.append(self.hashValue)
