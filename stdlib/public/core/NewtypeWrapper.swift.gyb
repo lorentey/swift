@@ -20,11 +20,6 @@ extension _SwiftNewtypeWrapper where Self.RawValue : Hashable {
   public var hashValue: Int {
     return rawValue.hashValue
   }
-
-  @_inlineable // FIXME(sil-serialize-all)
-  public func _hash<Hasher : _Hasher>(into hasher: inout Hasher) {
-    rawValue._hash(into: &hasher)
-  }
 }
 
 #if _runtime(_ObjC)
