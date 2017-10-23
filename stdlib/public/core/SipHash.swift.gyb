@@ -139,6 +139,10 @@ struct ${Self} : _Hasher {
     v0 ^= key.0
   }
 
+  public init() {
+    self.init(key: _Hashing.secretKey)
+  }
+
   // FIXME(ABI)#62 (UnsafeRawBufferPointer): Use UnsafeRawBufferPointer.
   @_inlineable // FIXME(sil-serialize-all)
   public // @testable
