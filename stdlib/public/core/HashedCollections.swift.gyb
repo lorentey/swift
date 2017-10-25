@@ -1191,9 +1191,11 @@ public struct Set<Element : Hashable> :
 
   @_inlineable // FIXME(sil-serialize-all)
   public func _hash<Hasher : _Hasher>(into hasher: inout Hasher) {
+    var hash = 0
     for member in self {
-      member._hash(into: &hasher)
+      hash ^= _hashValue(for: member)
     }
+    hasher.append(hash)
   }
 
   //
