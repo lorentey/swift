@@ -455,11 +455,6 @@ internal struct ComputedPropertyID: Hashable {
   @_versioned // FIXME(sil-serialize-all)
   internal var hashValue: Int {
     return _hashValue(for: self)
-    var hash = 0
-    hash ^= _mixInt(value)
-    hash ^= _mixInt(isStoredProperty ? 13 : 17)
-    hash ^= _mixInt(isTableOffset ? 19 : 23)
-    return hash
   }
 
   @_inlineable // FIXME(sil-serialize-all)
