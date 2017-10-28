@@ -1413,11 +1413,10 @@ extension ${Self} : Hashable {
       v = 0
     }    
   %if bits == 80:
-    var signAndExponent = v._representation.signAndExponent
-    withUnsafeBytes(of: &signAndExponent) { hasher.append($0) }
+    hasher.append(v._representation.signAndExponent)
     hasher.append(v.significandBitPattern)
   %else:
-    withUnsafeBytes(of: &v) { hasher.append($0) }
+    hasher.append(v.bitPattern)
   %end
   }
 

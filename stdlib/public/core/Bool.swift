@@ -161,6 +161,12 @@ extension Bool : Equatable, Hashable {
 
   @_inlineable // FIXME(sil-serialize-all)
   @_transparent
+  public func _hash<H : _Hasher>(into hasher: inout H) {
+    hasher.append((self ? 1 : 0) as UInt8)
+  }
+  
+  @_inlineable // FIXME(sil-serialize-all)
+  @_transparent
   public static func == (lhs: Bool, rhs: Bool) -> Bool {
     return Bool(Builtin.cmp_eq_Int1(lhs._value, rhs._value))
   }

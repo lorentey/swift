@@ -3492,8 +3492,7 @@ extension ${Self} : Hashable {
 
   @_inlineable // FIXME(sil-serialize-all)
   public func _hash<Hasher : _Hasher>(into hasher: inout Hasher) {
-    var v = self
-    withUnsafeBytes(of: &v) { buffer in hasher.append(buffer) }
+    hasher.append(self)
   }
 }
 
