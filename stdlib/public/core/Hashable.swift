@@ -97,24 +97,13 @@ public protocol Hashable : Equatable {
   func _hash<Hasher : _Hasher>(into hasher: inout Hasher)
 }
 
-public protocol _Hasher {
-  mutating func append(_ data: UnsafeRawBufferPointer)
-  mutating func append(_ data: Int)
-  mutating func append(_ data: UInt)
-  mutating func append(_ data: Int64)
-  mutating func append(_ data: UInt64)
-  mutating func append(_ data: Int32)
-  mutating func append(_ data: UInt32)
-}
-
-internal typealias _DefaultHasher = _SipHash13Context
-
 @_inlineable // FIXME(sil-serialize-all)
 @_versioned
+@inline(__always)
 internal func _hashValue<T : Hashable>(for value: T) -> Int {
   var hasher = _DefaultHasher()
   value._hash(into: &hasher)
-  return hasher.finalizeAndReturnHash()
+  return hasher.finalize()
 }
 
 extension Hashable {

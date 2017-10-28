@@ -63,6 +63,7 @@ set(SWIFTLIB_ESSENTIAL
   FloatingPointTypes.swift.gyb
   Hashable.swift
   HashedCollections.swift.gyb
+  Hasher.swift.gyb
   # WORKAROUND: This file name is not sorted alphabetically in the list because
   # if we do so, the compiler crashes.
   AnyHashable.swift

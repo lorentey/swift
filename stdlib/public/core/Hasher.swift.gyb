@@ -1,0 +1,246 @@
+//===----------------------------------------------------------------------===//
+//
+// This source file is part of the Swift.org open source project
+//
+// Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
+// Licensed under Apache License v2.0 with Runtime Library Exception
+//
+// See https://swift.org/LICENSE.txt for license information
+// See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
+//
+//===----------------------------------------------------------------------===//
+
+public protocol _HasherCore {
+  init()
+  mutating func append(_ value: UInt64)
+  mutating func finalize(tail: UInt64, tailByteCount: Int) -> UInt64
+}
+
+public protocol _Hasher {
+  mutating func append(from buffer: UnsafeRawBufferPointer)
+  mutating func append(_ value: Int)
+  mutating func append(_ value: UInt)
+  mutating func append(_ value: Int64)
+  mutating func append(_ value: UInt64)
+  mutating func append(_ value: Int32)
+  mutating func append(_ value: UInt32)
+  mutating func append(_ value: Int16)
+  mutating func append(_ value: UInt16)
+  mutating func append(_ value: Int8)
+  mutating func append(_ value: UInt8)
+}
+
+extension _Hasher {
+  % for bits in ['', '64', '32', '16', '8']:
+  %   for s in ['', 'U']:
+  public mutating func append(_ value: ${s}Int${bits}) {
+    var value = value
+    withUnsafeBytes(of: &value) { self.append(from: $0) }
+  }
+  %   end
+  % end
+}
+
+public struct _BufferingHasher<Core : _HasherCore> : _Hasher {
+  @_versioned
+  internal var _core: Core
+
+  @_versioned
+  internal var _tail: UInt64
+
+  @_versioned
+  internal var _tailByteCount: Int
+
+  @_inlineable // FIXME(sil-serialize-all)
+  @_versioned // FIXME(sil-serialize-all)
+  @inline(__always)
+  internal static func _loadUnalignedUInt64LE(
+    from data: UnsafeRawPointer
+  ) -> UInt64 {
+    var result: UInt64 = 0
+    result |= UInt64(data.load(fromByteOffset: 0, as: UInt8.self))
+    result |= UInt64(data.load(fromByteOffset: 1, as: UInt8.self)) &<< 8
+    result |= UInt64(data.load(fromByteOffset: 2, as: UInt8.self)) &<< 16
+    result |= UInt64(data.load(fromByteOffset: 3, as: UInt8.self)) &<< 24
+    result |= UInt64(data.load(fromByteOffset: 4, as: UInt8.self)) &<< 32
+    result |= UInt64(data.load(fromByteOffset: 5, as: UInt8.self)) &<< 40
+    result |= UInt64(data.load(fromByteOffset: 6, as: UInt8.self)) &<< 48
+    result |= UInt64(data.load(fromByteOffset: 7, as: UInt8.self)) &<< 56
+    return result
+  }
+
+  @_inlineable // FIXME(sil-serialize-all)
+  @_versioned // FIXME(sil-serialize-all)
+  @inline(__always)
+  internal static func _loadPartialUnalignedUInt64LE(
+    from buffer: UnsafeRawBufferPointer
+  ) -> UInt64 {
+    _sanityCheck((0..<MemoryLayout<Int>.size).contains(buffer.count))
+    var result: UInt64 = 0
+    if buffer.count >= 1 { result |= UInt64(buffer[0]) }
+    if buffer.count >= 2 { result |= UInt64(buffer[1]) &<< (8 as UInt64) }
+    if buffer.count >= 3 { result |= UInt64(buffer[2]) &<< (16 as UInt64) }
+    if buffer.count >= 4 { result |= UInt64(buffer[3]) &<< (24 as UInt64) }
+    if buffer.count >= 5 { result |= UInt64(buffer[4]) &<< (32 as UInt64) }
+    if buffer.count >= 6 { result |= UInt64(buffer[5]) &<< (40 as UInt64) }
+    if buffer.count >= 7 { result |= UInt64(buffer[6]) &<< (48 as UInt64) }
+    return result
+  }
+
+  @_inlineable // FIXME(sil-serialize-all)
+  @inline(__always) // performance
+  public init() {
+    self._core = Core()
+    self._tail = 0
+    self._tailByteCount = 0
+  }
+
+  @_inlineable // FIXME(sil-serialize-all)
+  @inline(__always) // performance
+  public mutating func append(_ value: UInt64) {
+    if _tailByteCount == 0 {
+      _core.append(value)
+    }
+    else {
+      _tail |= value &<< (_tailByteCount * 8)
+      _core.append(_tail)
+      _tail = value &>> (_tailByteCount * 8)
+      _tailByteCount = 0
+    }
+  }
+  
+  @_inlineable // FIXME(sil-serialize-all)
+  @inline(__always) // performance
+  public mutating func append(_ value: UInt) {
+    if MemoryLayout<UInt>.size == MemoryLayout<UInt64>.size {
+      append(UInt64(value._value))
+    }
+    else {
+      _tail |= UInt64(value) &<< (_tailByteCount * 8)
+      let remaining = (_tailByteCount +
+        MemoryLayout<UInt>.size - MemoryLayout<UInt64>.size)
+      if remaining >= 0 {
+        _core.append(_tail)
+        _tailByteCount = remaining
+        _tail = UInt64(value) &>> (_tailByteCount * 8)
+      }
+      else {
+        _tailByteCount += MemoryLayout<UInt>.size
+      }
+    }
+  }
+
+  @_inlineable // FIXME(sil-serialize-all)
+  @_transparent
+  public mutating func append(_ value: Int) {
+    append(UInt(bitPattern: value))
+  }
+
+  % for (signed, unsigned) in [('Int32', 'UInt32'), ('Int16', 'UInt16'), ('Int8', 'UInt8')]:
+  @_inlineable // FIXME(sil-serialize-all)
+  @_transparent
+  public mutating func append(_ value: ${signed}) {
+    append(${unsigned}(bitPattern: value))
+  }
+
+  @_inlineable // FIXME(sil-serialize-all)
+  @inline(__always) // performance
+  public mutating func append(_ value: ${unsigned}) {
+    _tail |= UInt64(value) &<< (_tailByteCount * 8)
+    let remaining = (_tailByteCount +
+      MemoryLayout<${unsigned}>.size - MemoryLayout<UInt64>.size)
+    if remaining >= 0 {
+      _core.append(_tail)
+      _tailByteCount = remaining
+      _tail = UInt64(value) &>> (_tailByteCount * 8)
+    }
+    else {
+      _tailByteCount += MemoryLayout<${unsigned}>.size
+    }
+  }
+  % end
+  
+  @_inlineable // FIXME(sil-serialize-all)
+  public mutating func append(from buffer: UnsafeRawBufferPointer) {
+    guard buffer.count > 0 else { return }
+    var data = buffer.baseAddress!
+    var count = buffer.count
+    
+    if _tailByteCount != 0 {
+      let fillCount = min(MemoryLayout<UInt64>.size - _tailByteCount, count)
+      let fill = _BufferingHasher._loadPartialUnalignedUInt64LE(
+        from: UnsafeRawBufferPointer(start: data, count: fillCount))
+      _tail |= fill &<< (_tailByteCount * 8)
+      _tailByteCount += fillCount
+      data += fillCount
+      count -= fillCount
+
+      if _tailByteCount == MemoryLayout<UInt64>.size {
+        _core.append(_tail)
+        _tail = 0
+        _tailByteCount = 0
+      }
+      else {
+        return
+      }
+    }
+
+    if 0 == UInt(bitPattern: data) & UInt(MemoryLayout<UInt64>.alignment - 1) {
+      while count >= MemoryLayout<UInt64>.size {
+        _core.append(UInt64(littleEndian: data.load(as: UInt64.self)))
+        data += MemoryLayout<UInt64>.size
+        count -= MemoryLayout<UInt64>.size
+      }
+    }
+    else {
+      while count >= MemoryLayout<UInt64>.size {
+        _core.append(_BufferingHasher._loadUnalignedUInt64LE(from: data))
+        data += MemoryLayout<UInt64>.size
+        count -= MemoryLayout<UInt64>.size
+      }
+    }
+
+    if count > 0 {
+      _tailByteCount = count
+      _tail = _BufferingHasher._loadPartialUnalignedUInt64LE(
+        from: UnsafeRawBufferPointer(start: data, count: count))
+    }
+  }
+
+  @_inlineable // FIXME(sil-serialize-all)
+  public mutating func finalize() -> Int {
+    return Int(truncatingIfNeeded: _core.finalize(
+        tail: _tail, tailByteCount: _tailByteCount))
+  }
+}
+
+// FIXME: This is purely for benchmarking; to be removed.
+public struct _QuickHasherCore : _HasherCore {
+  internal var _hash : UInt64
+
+  @inline(never)
+  public init() {
+    _hash = 0
+  }
+
+  @inline(never)
+  public mutating func append(_ value: UInt64) {
+    _hash = _hash &* 31 &+ value
+  }
+
+  @inline(never)
+  public mutating func finalize(
+    tail: UInt64,
+    tailByteCount: Int
+  ) -> UInt64 {
+    if tailByteCount > 0 {
+      append(tail)
+    }
+    return UInt64(truncatingIfNeeded: _mixInt(Int(truncatingIfNeeded: _hash)))
+  }  
+}
+
+public typealias _QuickHasher = _BufferingHasher<_QuickHasherCore>
+public typealias _SipHasher13 = _BufferingHasher<_SipHash13>
+public typealias _SipHasher24 = _BufferingHasher<_SipHash24>
+public typealias _DefaultHasher = _SipHasher13
