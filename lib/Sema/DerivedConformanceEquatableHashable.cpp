@@ -831,12 +831,16 @@ deriveHashable_hashInto(TypeChecker &tc, Decl *parentDecl,
   hashDecl->setInterfaceType(interfaceType);
   hashDecl->copyFormalAccessAndVersionedAttrFrom(typeDecl);
 
-  // If the type was not imported, the derived conformance is either from the
-  // type itself or an extension, in which case we will emit the declaration
-  // normally.
+  // Assume _hash(into:) is already typechecked if the type was imported;
+  // TypeChecker can't check functions on imported types.
   if (typeDecl->hasClangNode())
-    tc.Context.addExternalDecl(hashDecl);
+    hashDecl->setValidationStarted();
 
+  // If we aren't synthesizing into an imported type, the derived conformance is
+  // either from the type itself or an extension, in which case we will emit the
+  // declaration normally.
+  if (parentDecl->hasClangNode())
+    tc.Context.addExternalDecl(hashDecl);
   cast<IterableDeclContext>(parentDecl)->addMember(hashDecl);
   return hashDecl;
 }
