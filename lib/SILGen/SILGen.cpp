@@ -623,6 +623,10 @@ void SILGenModule::preEmitFunction(SILDeclRef constant,
       Loc = RegularLocation(astNode.get<Expr *>());
   }
 
+  if (!F->empty()) {
+    astNode.get<ValueDecl *>()->dump();
+    F->dump();
+  }
   assert(F->empty() && "already emitted function?!");
 
   if (F->getLoweredFunctionType()->isPolymorphic())

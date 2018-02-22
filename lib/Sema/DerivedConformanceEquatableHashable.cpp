@@ -836,11 +836,22 @@ deriveHashable_hashInto(TypeChecker &tc, Decl *parentDecl,
   if (typeDecl->hasClangNode())
     hashDecl->setValidationStarted();
 
+  if (typeDecl->hasClangNode()) // && !isa<ExtensionDecl>(parentDecl))
+    parentDecl->dump();
+
   // If we aren't synthesizing into an imported type, the derived conformance is
   // either from the type itself or an extension, in which case we will emit the
   // declaration normally.
   if (parentDecl->hasClangNode())
     tc.Context.addExternalDecl(hashDecl);
+  else if (typeDecl->getName() == C.getIdentifier("CNErrorCode")) {
+    parentDecl->dump();
+    typeDecl->dump();
+    tc.Context.addExternalDecl(hashDecl);
+    typeDecl->addMember(hashDecl);
+    return hashDecl;
+  }
+ 
   cast<IterableDeclContext>(parentDecl)->addMember(hashDecl);
   return hashDecl;
 }

@@ -7590,6 +7590,9 @@ void TypeChecker::validateDecl(ValueDecl *D) {
   // protocol with property requirements, which requires synthesizing getters
   // and setters, etc.
   if (!isa<VarDecl>(D) && !isa<AccessorDecl>(D)) {
+    if (!isa<SourceFile>(D->getDeclContext()->getModuleScopeContext())) {
+      D->dump();
+    }
     assert(isa<SourceFile>(D->getDeclContext()->getModuleScopeContext()) &&
            "Should not validate imported or deserialized declarations");
   }

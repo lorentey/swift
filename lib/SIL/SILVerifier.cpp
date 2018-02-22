@@ -1078,6 +1078,11 @@ public:
     // A direct reference to a shared_external declaration is an error; we
     // should have deserialized a body.
     if (RefF->isExternalDeclaration()) {
+      if (!(SingleFunction ||
+              !hasSharedVisibility(RefF->getLinkage()) ||
+            RefF->hasForeignBody())) {
+        RefF->dump();
+      }
       require(SingleFunction ||
               !hasSharedVisibility(RefF->getLinkage()) ||
               RefF->hasForeignBody(),
