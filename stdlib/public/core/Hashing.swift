@@ -50,6 +50,7 @@ enum _Hashing {
 public // @testable
 enum _HashingDetail {
 
+  // FIXME(hasher): Remove
   @_inlineable // FIXME(sil-serialize-all)
   public // @testable
   static var fixedSeedOverride: UInt64 {
@@ -64,6 +65,7 @@ enum _HashingDetail {
     }
   }
 
+  // FIXME(hasher): Remove
   @_inlineable // FIXME(sil-serialize-all)
   @_versioned
   @_transparent
@@ -74,6 +76,7 @@ enum _HashingDetail {
     return _HashingDetail.fixedSeedOverride == 0 ? seed : fixedSeedOverride
   }
 
+  // FIXME(hasher): Remove
   @_inlineable // FIXME(sil-serialize-all)
   @_versioned
   @_transparent
@@ -98,6 +101,7 @@ enum _HashingDetail {
 // their inputs and just exhibit avalanche effect.
 //
 
+// FIXME(hasher): Remove
 @_inlineable // FIXME(sil-serialize-all)
 @_transparent
 public // @testable
@@ -112,6 +116,7 @@ func _mixUInt32(_ value: UInt32) -> UInt32 {
   return UInt32((extendedResult >> 3) & 0xffff_ffff)
 }
 
+// FIXME(hasher): Remove
 @_inlineable // FIXME(sil-serialize-all)
 @_transparent
 public // @testable
@@ -119,6 +124,7 @@ func _mixInt32(_ value: Int32) -> Int32 {
   return Int32(bitPattern: _mixUInt32(UInt32(bitPattern: value)))
 }
 
+// FIXME(hasher): Remove
 @_inlineable // FIXME(sil-serialize-all)
 @_transparent
 public // @testable
@@ -130,6 +136,7 @@ func _mixUInt64(_ value: UInt64) -> UInt64 {
   return _HashingDetail.hash16Bytes(seed &+ (low << 3), high)
 }
 
+// FIXME(hasher): Remove
 @_inlineable // FIXME(sil-serialize-all)
 @_transparent
 public // @testable
@@ -137,6 +144,7 @@ func _mixInt64(_ value: Int64) -> Int64 {
   return Int64(bitPattern: _mixUInt64(UInt64(bitPattern: value)))
 }
 
+// FIXME(hasher): Remove
 @_inlineable // FIXME(sil-serialize-all)
 @_transparent
 public // @testable
@@ -148,6 +156,7 @@ func _mixUInt(_ value: UInt) -> UInt {
 #endif
 }
 
+// FIXME(hasher): Remove
 @_inlineable // FIXME(sil-serialize-all)
 @_transparent
 public // @testable
@@ -213,4 +222,102 @@ func _combineHashValues(_ firstValue: Int, _ secondValue: Int) -> Int {
   var x = UInt(bitPattern: firstValue)
   x ^= UInt(bitPattern: secondValue) &+ magic &+ (x &<< 6) &+ (x &>> 2)
   return Int(bitPattern: x)
+}
+
+// FIXME(hasher): This is purely for benchmarking; to be removed.
+internal struct _LegacyHasher {
+  internal var _hash: Int
+
+  @inline(__always)
+  internal init() {
+    _hash = 0
+  }
+
+  @inline(__always)
+  internal mutating func append(bits value: Int) {
+    _hash = (_hash == 0 ? value : _combineHashValues(_hash, value))
+  }
+
+  @inline(__always)
+  internal mutating func append(bits value: UInt) {
+    append(bits: Int(bitPattern: value))
+  }
+
+  @inline(__always)
+  internal mutating func append(bits value: UInt32) {
+    append(bits: Int(truncatingIfNeeded: value))
+  }
+
+  @inline(__always)
+  internal mutating func append(bits value: UInt64) {
+    if UInt64.bitWidth > Int.bitWidth {
+      append(bits: Int(truncatingIfNeeded: value ^ (value &>> 32)))
+    } else {
+      append(bits: Int(truncatingIfNeeded: value))
+    }
+  }
+
+  @inline(__always)
+  internal mutating func finalize() -> UInt64 {
+    return UInt64(
+      _truncatingBits: UInt(bitPattern: _mixInt(_hash))._lowWord)
+  }
+}
+
+
+// NOT @_fixed_layout
+public struct _Hasher {
+  internal typealias Core = _LegacyHasher
+
+  // NOT @_versioned
+  internal var _core: Core
+
+  // NOT @_inlineable
+  @effects(releasenone)
+  public init() {
+    self._core = Core()
+  }
+
+  @inline(__always)
+  public mutating func append<H: Hashable>(_ value: H) {
+    value._hash(into: &self)
+  }
+
+  // NOT @_inlineable
+  @effects(releasenone)
+  public mutating func append(bits: UInt) {
+    _core.append(bits)
+  }
+  // NOT @_inlineable
+  @effects(releasenone)
+  public mutating func append(bits: UInt32) {
+    _core.append(bits)
+  }
+  // NOT @_inlineable
+  @effects(releasenone)
+  public mutating func append(bits: UInt64) {
+    _core.append(bits)
+  }
+
+  // NOT @_inlineable
+  @effects(releasenone)
+  public mutating func append(bits: Int) {
+    _core.append(UInt(bitPattern: bits))
+  }
+  // NOT @_inlineable
+  @effects(releasenone)
+  public mutating func append(bits: Int32) {
+    _core.append(UInt32(bitPattern: bits))
+  }
+  // NOT @_inlineable
+  @effects(releasenone)
+  public mutating func append(bits: Int64) {
+    _core.append(UInt64(bitPattern: bits))
+  }
+
+  // NOT @_inlineable
+  @effects(releasenone)
+  public mutating func finalize() -> Int {
+    return Int(truncatingIfNeeded: _core.finalize())
+  }
 }
