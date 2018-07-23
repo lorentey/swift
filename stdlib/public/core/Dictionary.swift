@@ -3340,7 +3340,7 @@ extension Dictionary._Variant {
     // unoptimized builds; see https://bugs.swift.org/browse/SR-6437
     let n = _isNative
     if n {
-      return ensureUniqueNative(withBucketCount: desiredBucketCount)
+      return _ensureUniqueNative(withBucketCount: desiredBucketCount)
     }
 
     switch self {
@@ -3351,7 +3351,7 @@ extension Dictionary._Variant {
       return (reallocated: true, capacityChanged: true)
     }
 #else
-    return ensureUniqueNative(withBucketCount: desiredBucketCount)
+    return _ensureUniqueNative(withBucketCount: desiredBucketCount)
 #endif
   }
 
