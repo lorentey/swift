@@ -1697,8 +1697,7 @@ final internal class _HashableTypedNativeSetStorage<Element: Hashable>
     }
 
     let unmanagedObjects = _UnmanagedAnyObjectArray(objects!)
-    var currIndex = _NativeSetIndex<Element>(
-        offset: Int(theState.extra.0))
+    var currIndex = _NativeSet<Element>.Index(offset: Int(theState.extra.0))
     let endIndex = nativeSet.endIndex
     var stored = 0
     for i in 0..<count {
@@ -1757,8 +1756,6 @@ final internal class _HashableTypedNativeSetStorage<Element: Hashable>
 internal struct _NativeSet<Element> {
   @usableFromInline
   internal typealias TypedStorage = _TypedNativeSetStorage<Element>
-  @usableFromInline
-  internal typealias Index = _NativeSetIndex<Element>
 
   /// See this comments on _RawNativeSetStorage and its subclasses to
   /// understand why we store an untyped storage here.
@@ -2267,7 +2264,7 @@ extension _NativeSet/*: _SetBuffer*/ where Element: Hashable {
 final internal class _SwiftSetNSEnumerator<Element>
   : _SwiftNativeNSEnumerator, _NSEnumerator {
 
-  internal typealias Index = _NativeSetIndex<Element>
+  internal typealias Index = _NativeSet<Element>.Index
 
   internal var nativeSet: _NativeSet<Element>
   internal var nextIndex: Index
@@ -2485,8 +2482,7 @@ final internal class _SwiftDeferredNSSet<Element: Hashable>
     }
 
     let unmanagedObjects = _UnmanagedAnyObjectArray(objects!)
-    var currIndex = _NativeSetIndex<Element>(
-        offset: Int(theState.extra.0))
+    var currIndex = _NativeSet<Element>.Index(offset: Int(theState.extra.0))
     let endIndex = nativeSet.endIndex
     var stored = 0
 
@@ -2525,9 +2521,6 @@ internal struct _CocoaSet: _SetBuffer {
   internal init(_ object: _NSSet) {
     self.object = object
   }
-
-  @usableFromInline
-  internal typealias Index = _CocoaSetIndex
 
   @inlinable // FIXME(sil-serialize-all)
   internal var startIndex: Index {
@@ -2612,7 +2605,7 @@ extension Set {
   @_frozen
   internal enum _Variant: _SetBuffer {
     @usableFromInline
-    internal typealias NativeIndex = _NativeSetIndex<Element>
+    internal typealias NativeIndex = _NativeSet<Element>.Index
 
     case native(_NativeSet<Element>)
 #if _runtime(_ObjC)
@@ -3182,109 +3175,113 @@ extension Set._Variant {
   }
 }
 
-@_fixed_layout // FIXME(sil-serialize-all)
-@usableFromInline
-internal struct _NativeSetIndex<Element> {
+extension _NativeSet {
+  @_fixed_layout // FIXME(sil-serialize-all)
   @usableFromInline
-  internal var offset: Int
+  internal struct Index {
+    @usableFromInline
+    internal var offset: Int
 
-  @inlinable // FIXME(sil-serialize-all)
-  internal init(offset: Int) {
-    self.offset = offset
+    @inlinable // FIXME(sil-serialize-all)
+    internal init(offset: Int) {
+      self.offset = offset
+    }
   }
 }
 
-extension _NativeSetIndex: Equatable {
+extension _NativeSet.Index: Equatable {
   @inlinable // FIXME(sil-serialize-all)
   internal static func == (
-    lhs: _NativeSetIndex<Element>,
-    rhs: _NativeSetIndex<Element>
+    lhs: _NativeSet.Index,
+    rhs: _NativeSet.Index
   ) -> Bool {
     return lhs.offset == rhs.offset
   }
 }
 
-extension _NativeSetIndex: Comparable {
+extension _NativeSet.Index: Comparable {
   @inlinable // FIXME(sil-serialize-all)
   internal static func < (
-    lhs: _NativeSetIndex<Element>,
-    rhs: _NativeSetIndex<Element>
+    lhs: _NativeSet.Index,
+    rhs: _NativeSet.Index
   ) -> Bool {
     return lhs.offset < rhs.offset
   }
 }
 
 #if _runtime(_ObjC)
-@_fixed_layout // FIXME(sil-serialize-all)
-@usableFromInline
-internal struct _CocoaSetIndex {
-  // Assumption: we rely on NSDictionary.getObjects when being
-  // repeatedly called on the same NSDictionary, returning items in the same
-  // order every time.
-  // Similarly, the same assumption holds for NSSet.allObjects.
+extension _CocoaSet {
+  @_fixed_layout // FIXME(sil-serialize-all)
+  @usableFromInline
+  internal struct Index {
+    // Assumption: we rely on NSDictionary.getObjects when being
+    // repeatedly called on the same NSDictionary, returning items in the same
+    // order every time.
+    // Similarly, the same assumption holds for NSSet.allObjects.
 
-  /// A reference to the NSSet, which owns members in `allObjects`,
-  /// or `allKeys`, for NSSet and NSDictionary respectively.
-  @usableFromInline // FIXME(sil-serialize-all)
-  internal let cocoaSet: _CocoaSet
-  // FIXME: swift-3-indexing-model: try to remove the cocoa reference, but make
-  // sure that we have a safety check for accessing `allKeys`.  Maybe move both
-  // into the dictionary/set itself.
+    /// A reference to the NSSet, which owns members in `allObjects`,
+    /// or `allKeys`, for NSSet and NSDictionary respectively.
+    @usableFromInline // FIXME(sil-serialize-all)
+    internal let cocoaSet: _CocoaSet
+    // FIXME: swift-3-indexing-model: try to remove the cocoa reference, but
+    // make sure that we have a safety check for accessing `allKeys`.  Maybe
+    // move both into the dictionary/set itself.
 
-  /// An unowned array of keys.
-  @usableFromInline // FIXME(sil-serialize-all)
-  internal var allKeys: _HeapBuffer<Int, AnyObject>
+    /// An unowned array of keys.
+    @usableFromInline // FIXME(sil-serialize-all)
+    internal var allKeys: _HeapBuffer<Int, AnyObject>
 
-  /// Index into `allKeys`
-  @usableFromInline // FIXME(sil-serialize-all)
-  internal var currentKeyIndex: Int
+    /// Index into `allKeys`
+    @usableFromInline // FIXME(sil-serialize-all)
+    internal var currentKeyIndex: Int
 
-  @inlinable // FIXME(sil-serialize-all)
-  internal init(_ cocoaSet: _CocoaSet, startIndex: ()) {
-    self.cocoaSet = cocoaSet
-    self.allKeys = _stdlib_NSSet_allObjects(cocoaSet.object)
-    self.currentKeyIndex = 0
-  }
+    @inlinable // FIXME(sil-serialize-all)
+    internal init(_ cocoaSet: _CocoaSet, startIndex: ()) {
+      self.cocoaSet = cocoaSet
+      self.allKeys = _stdlib_NSSet_allObjects(cocoaSet.object)
+      self.currentKeyIndex = 0
+    }
 
-  @inlinable // FIXME(sil-serialize-all)
-  internal init(_ cocoaSet: _CocoaSet, endIndex: ()) {
-    self.cocoaSet = cocoaSet
-    self.allKeys = _stdlib_NSSet_allObjects(cocoaSet.object)
-    self.currentKeyIndex = allKeys.value
-  }
+    @inlinable // FIXME(sil-serialize-all)
+    internal init(_ cocoaSet: _CocoaSet, endIndex: ()) {
+      self.cocoaSet = cocoaSet
+      self.allKeys = _stdlib_NSSet_allObjects(cocoaSet.object)
+      self.currentKeyIndex = allKeys.value
+    }
 
-  @inlinable // FIXME(sil-serialize-all)
-  internal init(_ cocoaSet: _CocoaSet,
-    _ allKeys: _HeapBuffer<Int, AnyObject>,
-    _ currentKeyIndex: Int
-  ) {
-    self.cocoaSet = cocoaSet
-    self.allKeys = allKeys
-    self.currentKeyIndex = currentKeyIndex
-  }
+    @inlinable // FIXME(sil-serialize-all)
+    internal init(_ cocoaSet: _CocoaSet,
+      _ allKeys: _HeapBuffer<Int, AnyObject>,
+      _ currentKeyIndex: Int
+    ) {
+      self.cocoaSet = cocoaSet
+      self.allKeys = allKeys
+      self.currentKeyIndex = currentKeyIndex
+    }
 
-  /// Returns the next consecutive value after `self`.
-  ///
-  /// - Precondition: The next value is representable.
-  @inlinable // FIXME(sil-serialize-all)
-  internal func successor() -> _CocoaSetIndex {
-    // FIXME: swift-3-indexing-model: remove this method.
-    _precondition(
-      currentKeyIndex < allKeys.value, "Cannot increment endIndex")
-    return _CocoaSetIndex(cocoaSet, allKeys, currentKeyIndex + 1)
+    /// Returns the next consecutive value after `self`.
+    ///
+    /// - Precondition: The next value is representable.
+    @inlinable // FIXME(sil-serialize-all)
+    internal func successor() -> Index {
+      // FIXME: swift-3-indexing-model: remove this method.
+      _precondition(
+        currentKeyIndex < allKeys.value, "Cannot increment endIndex")
+      return Index(cocoaSet, allKeys, currentKeyIndex + 1)
+    }
   }
 }
 
-extension _CocoaSetIndex: Equatable {
+extension _CocoaSet.Index: Equatable {
   @inlinable // FIXME(sil-serialize-all)
-  internal static func == (lhs: _CocoaSetIndex, rhs: _CocoaSetIndex) -> Bool {
+  internal static func == (lhs: _CocoaSet.Index, rhs: _CocoaSet.Index) -> Bool {
     return lhs.currentKeyIndex == rhs.currentKeyIndex
   }
 }
 
-extension _CocoaSetIndex: Comparable {
+extension _CocoaSet.Index: Comparable {
   @inlinable // FIXME(sil-serialize-all)
-  internal static func < (lhs: _CocoaSetIndex, rhs: _CocoaSetIndex) -> Bool {
+  internal static func < (lhs: _CocoaSet.Index, rhs: _CocoaSet.Index) -> Bool {
     return lhs.currentKeyIndex < rhs.currentKeyIndex
   }
 }
@@ -3320,10 +3317,10 @@ extension Set {
     // type for bridged NSSet in terms of Cocoa enumeration facilities.
 
     @usableFromInline
-    internal typealias _NativeIndex = _NativeSetIndex<Element>
+    internal typealias _NativeIndex = _NativeSet<Element>.Index
 #if _runtime(_ObjC)
     @usableFromInline
-    internal typealias _CocoaIndex = _CocoaSetIndex
+    internal typealias _CocoaIndex = _CocoaSet.Index
 #endif
 
     @inlinable // FIXME(sil-serialize-all)
@@ -3563,7 +3560,7 @@ public struct SetIterator<Element: Hashable>: IteratorProtocol {
   // IteratorProtocol, which is being consumed as iteration proceeds.
 
   @usableFromInline
-  internal typealias _NativeIndex = _NativeSetIndex<Element>
+  internal typealias _NativeIndex = _NativeSet<Element>.Index
 
   @usableFromInline
   internal var _state: SetIteratorRepresentation<Element>

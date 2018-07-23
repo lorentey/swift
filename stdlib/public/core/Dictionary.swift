@@ -74,7 +74,7 @@ import SwiftShims
 //     +-+
 //       |     Dictionary<K,V>.Index (an enum)
 //   +---|-----------------------------------+
-//   |   |  _CocoaDictionaryIndex (a struct) |
+//   |   | _CocoaDictionary.Index (a struct) |
 //   | +-|-----------------------------+     |
 //   | | * [ all keys ] [ next index ] |     |
 //   | +-------------------------------+     |
@@ -1580,8 +1580,9 @@ internal enum _MergeError: Error {
 /// Equivalent to `NSDictionary.allKeys`, but does not leave objects on the
 /// autorelease pool.
 @inlinable // FIXME(sil-serialize-all)
-internal func _stdlib_NSDictionary_allKeys(_ nsd: _NSDictionary)
-    -> _HeapBuffer<Int, AnyObject> {
+internal func _stdlib_NSDictionary_allKeys(
+  _ nsd: _NSDictionary
+) -> _HeapBuffer<Int, AnyObject> {
   let count = nsd.count
   let storage = _HeapBuffer<Int, AnyObject>(
     _HeapBufferStorage<Int, AnyObject>.self, count, count)
@@ -2092,7 +2093,7 @@ final internal class _HashableTypedNativeDictionaryStorage<Key: Hashable, Value>
     }
 
     let unmanagedObjects = _UnmanagedAnyObjectArray(objects!)
-    var currIndex = _NativeDictionaryIndex<Key, Value>(
+    var currIndex = _NativeDictionary<Key, Value>.Index(
         offset: Int(theState.extra.0))
     let endIndex = native.endIndex
     var stored = 0
@@ -2199,8 +2200,6 @@ internal struct _NativeDictionary<Key, Value> {
   internal typealias Element = (key: Key, value: Value)
   @usableFromInline // FIXME(sil-serialize-all)
   internal typealias TypedStorage = _TypedNativeDictionaryStorage<Key, Value>
-  @usableFromInline // FIXME(sil-serialize-all)
-  internal typealias Index = _NativeDictionaryIndex<Key, Value>
 
   /// See this comments on _RawNativeDictionaryStorage and its subclasses to
   /// understand why we store an untyped storage here.
@@ -2741,7 +2740,7 @@ extension _NativeDictionary/*: _DictionaryBuffer */ where Key: Hashable {
 final internal class _SwiftDictionaryNSEnumerator<Key, Value>
   : _SwiftNativeNSEnumerator, _NSEnumerator {
 
-  internal typealias Index = _NativeDictionaryIndex<Key, Value>
+  internal typealias Index = _NativeDictionary<Key, Value>.Index
 
   internal var nativeDictionary: _NativeDictionary<Key, Value>
   internal var nextIndex: Index
@@ -3035,7 +3034,7 @@ final internal class _SwiftDeferredNSDictionary<Key: Hashable, Value>
     }
 
     let unmanagedObjects = _UnmanagedAnyObjectArray(objects!)
-    var currIndex = _NativeDictionaryIndex<Key, Value>(
+    var currIndex = _NativeDictionary<Key, Value>.Index(
         offset: Int(theState.extra.0))
     let endIndex = nativeDictionary.endIndex
     var stored = 0
@@ -3075,9 +3074,6 @@ internal struct _CocoaDictionary: _DictionaryBuffer {
   internal init(_ object: _NSDictionary) {
     self.object = object
   }
-
-  @usableFromInline
-  internal typealias Index = _CocoaDictionaryIndex
 
   @usableFromInline
   internal typealias Key = AnyObject
@@ -3192,7 +3188,7 @@ extension Dictionary {
     @usableFromInline
     internal typealias Element = (key: Key, value: Value)
     @usableFromInline
-    internal typealias NativeIndex = _NativeDictionaryIndex<Key, Value>
+    internal typealias NativeIndex = _NativeDictionary<Key, Value>.Index
 
     case native(_NativeDictionary<Key, Value>)
 #if _runtime(_ObjC)
@@ -3395,7 +3391,7 @@ extension Dictionary._Variant {
   //
 
   @usableFromInline
-  internal typealias Index = DictionaryIndex<Key, Value>
+  internal typealias Index = Dictionary<Key, Value>.Index
 
   @inlinable // FIXME(sil-serialize-all)
   internal var startIndex: Index {
@@ -3944,114 +3940,118 @@ extension Dictionary._Variant {
   }
 }
 
-@_fixed_layout // FIXME(sil-serialize-all)
-@usableFromInline
-internal struct _NativeDictionaryIndex<Key, Value> {
+extension _NativeDictionary {
+  @_fixed_layout // FIXME(sil-serialize-all)
   @usableFromInline
-  internal var offset: Int
+  internal struct Index {
+    @usableFromInline
+    internal var offset: Int
 
-  @inlinable // FIXME(sil-serialize-all)
-  internal init(offset: Int) {
-    self.offset = offset
+    @inlinable // FIXME(sil-serialize-all)
+    internal init(offset: Int) {
+      self.offset = offset
+    }
   }
 }
 
-extension _NativeDictionaryIndex: Equatable {
+extension _NativeDictionary.Index: Equatable {
   @inlinable // FIXME(sil-serialize-all)
   internal static func == (
-    lhs: _NativeDictionaryIndex<Key, Value>,
-    rhs: _NativeDictionaryIndex<Key, Value>
+    lhs: _NativeDictionary.Index,
+    rhs: _NativeDictionary.Index
   ) -> Bool {
     return lhs.offset == rhs.offset
   }
 }
 
-extension _NativeDictionaryIndex: Comparable {
+extension _NativeDictionary.Index: Comparable {
   @inlinable // FIXME(sil-serialize-all)
   internal static func < (
-    lhs: _NativeDictionaryIndex<Key, Value>,
-    rhs: _NativeDictionaryIndex<Key, Value>
+    lhs: _NativeDictionary.Index,
+    rhs: _NativeDictionary.Index
   ) -> Bool {
     return lhs.offset < rhs.offset
   }
 }
 
 #if _runtime(_ObjC)
-@_fixed_layout // FIXME(sil-serialize-all)
-@usableFromInline
-internal struct _CocoaDictionaryIndex {
-  // Assumption: we rely on NSDictionary.getObjects when being
-  // repeatedly called on the same NSDictionary, returning items in the same
-  // order every time.
-  // Similarly, the same assumption holds for NSSet.allObjects.
+extension _CocoaDictionary {
+  @_fixed_layout // FIXME(sil-serialize-all)
+  @usableFromInline
+  internal struct Index {
+    // Assumption: we rely on NSDictionary.getObjects when being
+    // repeatedly called on the same NSDictionary, returning items in the same
+    // order every time.
+    // Similarly, the same assumption holds for NSSet.allObjects.
 
-  /// A reference to the NSDictionary, which owns members in `allObjects`,
-  /// or `allKeys`, for NSSet and NSDictionary respectively.
-  @usableFromInline // FIXME(sil-serialize-all)
-  internal let cocoaDictionary: _CocoaDictionary
-  // FIXME: swift-3-indexing-model: try to remove the cocoa reference, but make
-  // sure that we have a safety check for accessing `allKeys`.  Maybe move both
-  // into the dictionary/set itself.
+    /// A reference to the NSDictionary, which owns members in `allObjects`,
+    /// or `allKeys`, for NSSet and NSDictionary respectively.
+    @usableFromInline // FIXME(sil-serialize-all)
+    internal let cocoaDictionary: _CocoaDictionary
+    // FIXME: swift-3-indexing-model: try to remove the cocoa reference, but
+    // make sure that we have a safety check for accessing `allKeys`.  Maybe
+    // move both into the dictionary/set itself.
 
-  /// An unowned array of keys.
-  @usableFromInline // FIXME(sil-serialize-all)
-  internal var allKeys: _HeapBuffer<Int, AnyObject>
+    /// An unowned array of keys.
+    @usableFromInline // FIXME(sil-serialize-all)
+    internal var allKeys: _HeapBuffer<Int, AnyObject>
 
-  /// Index into `allKeys`
-  @usableFromInline // FIXME(sil-serialize-all)
-  internal var currentKeyIndex: Int
+    /// Index into `allKeys`
+    @usableFromInline // FIXME(sil-serialize-all)
+    internal var currentKeyIndex: Int
 
-  @inlinable // FIXME(sil-serialize-all)
-  internal init(cocoaDictionary: _CocoaDictionary, startIndex: ()) {
-    self.cocoaDictionary = cocoaDictionary
-    self.allKeys = _stdlib_NSDictionary_allKeys(cocoaDictionary.object)
-    self.currentKeyIndex = 0
-  }
+    @inlinable // FIXME(sil-serialize-all)
+    internal init(cocoaDictionary: _CocoaDictionary, startIndex: ()) {
+      self.cocoaDictionary = cocoaDictionary
+      self.allKeys = _stdlib_NSDictionary_allKeys(cocoaDictionary.object)
+      self.currentKeyIndex = 0
+    }
 
-  @inlinable // FIXME(sil-serialize-all)
-  internal init(cocoaDictionary: _CocoaDictionary, endIndex: ()) {
-    self.cocoaDictionary = cocoaDictionary
-    self.allKeys = _stdlib_NSDictionary_allKeys(cocoaDictionary.object)
-    self.currentKeyIndex = allKeys.value
-  }
+    @inlinable // FIXME(sil-serialize-all)
+    internal init(cocoaDictionary: _CocoaDictionary, endIndex: ()) {
+      self.cocoaDictionary = cocoaDictionary
+      self.allKeys = _stdlib_NSDictionary_allKeys(cocoaDictionary.object)
+      self.currentKeyIndex = allKeys.value
+    }
 
-  @inlinable // FIXME(sil-serialize-all)
-  internal init(_ cocoaDictionary: _CocoaDictionary,
-    _ allKeys: _HeapBuffer<Int, AnyObject>,
-    _ currentKeyIndex: Int
-  ) {
-    self.cocoaDictionary = cocoaDictionary
-    self.allKeys = allKeys
-    self.currentKeyIndex = currentKeyIndex
-  }
+    @inlinable // FIXME(sil-serialize-all)
+    internal init(_ cocoaDictionary: _CocoaDictionary,
+      _ allKeys: _HeapBuffer<Int, AnyObject>,
+      _ currentKeyIndex: Int
+    ) {
+      self.cocoaDictionary = cocoaDictionary
+      self.allKeys = allKeys
+      self.currentKeyIndex = currentKeyIndex
+    }
 
-  /// Returns the next consecutive value after `self`.
-  ///
-  /// - Precondition: The next value is representable.
-  @inlinable // FIXME(sil-serialize-all)
-  internal func successor() -> _CocoaDictionaryIndex {
-    // FIXME: swift-3-indexing-model: remove this method.
-    _precondition(
-      currentKeyIndex < allKeys.value, "Cannot increment endIndex")
-    return _CocoaDictionaryIndex(cocoaDictionary, allKeys, currentKeyIndex + 1)
+    /// Returns the next consecutive value after `self`.
+    ///
+    /// - Precondition: The next value is representable.
+    @inlinable // FIXME(sil-serialize-all)
+    internal func successor() -> Index {
+      // FIXME: swift-3-indexing-model: remove this method.
+      _precondition(
+        currentKeyIndex < allKeys.value, "Cannot increment endIndex")
+      return Index(cocoaDictionary, allKeys, currentKeyIndex + 1)
+    }
   }
 }
 
-extension _CocoaDictionaryIndex: Equatable {
+extension _CocoaDictionary.Index: Equatable {
   @inlinable // FIXME(sil-serialize-all)
   internal static func == (
-    lhs: _CocoaDictionaryIndex,
-    rhs: _CocoaDictionaryIndex
+    lhs: _CocoaDictionary.Index,
+    rhs: _CocoaDictionary.Index
   ) -> Bool {
     return lhs.currentKeyIndex == rhs.currentKeyIndex
   }
 }
 
-extension _CocoaDictionaryIndex: Comparable {
+extension _CocoaDictionary.Index: Comparable {
   @inlinable // FIXME(sil-serialize-all)
   internal static func < (
-    lhs: _CocoaDictionaryIndex,
-    rhs: _CocoaDictionaryIndex
+    lhs: _CocoaDictionary.Index,
+    rhs: _CocoaDictionary.Index
   ) -> Bool {
     return lhs.currentKeyIndex < rhs.currentKeyIndex
   }
@@ -4098,10 +4098,10 @@ extension Dictionary {
     // type for bridged NSDictionary in terms of Cocoa enumeration facilities.
 
     @usableFromInline
-    internal typealias _NativeIndex = _NativeDictionaryIndex<Key, Value>
+    internal typealias _NativeIndex = _NativeDictionary<Key, Value>.Index
 #if _runtime(_ObjC)
     @usableFromInline
-    internal typealias _CocoaIndex = _CocoaDictionaryIndex
+    internal typealias _CocoaIndex = _CocoaDictionary.Index
 #endif
 
     @inlinable // FIXME(sil-serialize-all)
@@ -4342,7 +4342,7 @@ public struct DictionaryIterator<Key: Hashable, Value>: IteratorProtocol {
   // IteratorProtocol, which is being consumed as iteration proceeds.
 
   @usableFromInline
-  internal typealias _NativeIndex = _NativeDictionaryIndex<Key, Value>
+  internal typealias _NativeIndex = _NativeDictionary<Key, Value>.Index
 
   @usableFromInline
   internal var _state: DictionaryIteratorRepresentation<Key, Value>
