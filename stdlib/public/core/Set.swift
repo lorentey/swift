@@ -1565,8 +1565,7 @@ internal class _RawNativeSetStorage: _SwiftNativeNSSet, _NSSetCore {
   /// _NativeSelfNSEnumerator proper type parameters.
   @objc
   internal func enumerator() -> _NSEnumerator {
-    return _NativeSetNSEnumerator<AnyObject>(
-        _NativeSet(_storage: self))
+    return _SwiftSetNSEnumerator<AnyObject>(_NativeSet(_storage: self))
   }
 
   @inlinable // FIXME(sil-serialize-all)
@@ -1673,7 +1672,7 @@ final internal class _HashableTypedNativeSetStorage<Element: Hashable>
 
   @objc
   internal override func enumerator() -> _NSEnumerator {
-    return _NativeSetNSEnumerator<Element>(_NativeSet(_storage: self))
+    return _SwiftSetNSEnumerator<Element>(_NativeSet(_storage: self))
   }
 
   @inlinable // FIXME(sil-serialize-all)
@@ -2265,7 +2264,7 @@ extension _NativeSet/*: _SetBuffer*/ where Element: Hashable {
 #if _runtime(_ObjC)
 /// An NSEnumerator that works with any _NativeSet of verbatim bridgeable
 /// elements. Used by the various NSSet impls.
-final internal class _NativeSetNSEnumerator<Element>
+final internal class _SwiftSetNSEnumerator<Element>
   : _SwiftNativeNSEnumerator, _NSEnumerator {
 
   internal typealias Index = _NativeSetIndex<Element>
@@ -2461,7 +2460,7 @@ final internal class _SwiftDeferredNSSet<Element: Hashable>
   @objc
   internal func enumerator() -> _NSEnumerator {
     bridgeEverything()
-    return _NativeSetNSEnumerator<AnyObject>(bridgedSet)
+    return _SwiftSetNSEnumerator<AnyObject>(bridgedSet)
   }
 
   @objc(countByEnumeratingWithState:objects:count:)
