@@ -3260,16 +3260,8 @@ extension Dictionary._Variant {
     withBucketCount desiredBucketCount: Int
   ) -> (reallocated: Bool, capacityChanged: Bool) {
 #if _runtime(_ObjC)
-    // This is a performance optimization that was put in to ensure that we did
-    // not make a copy of self to call _isNative over the entire if region
-    // causing at -Onone the uniqueness check to fail. This code used to be:
-    //
-    //  if _isNative {
-    //    return ensureUniqueNativeBufferNative(
-    //      withBucketCount: desiredBucketCount)
-    //  }
-    //
-    // SR-6437
+    // This is in a separate variable to make the uniqueness check work in
+    // unoptimized builds; see https://bugs.swift.org/browse/SR-6437
     let n = _isNative
     if n {
       return ensureUniqueNativeBufferNative(withBucketCount: desiredBucketCount)
@@ -3536,14 +3528,8 @@ extension Dictionary._Variant {
   @inlinable // FIXME(sil-serialize-all)
   internal mutating func nativePointerToValue(at i: Index)
   -> UnsafeMutablePointer<Value> {
-    // This is a performance optimization that was put in to ensure that we did
-    // not make a copy of self to call asNative.bucketCount over
-    // ensureUniqueNativeBefore causing at -Onone the uniqueness check to
-    // fail. This code used to be:
-    //
-    // _ = ensureUniqueNativeBuffer(withBucketCount: bucketCount)
-    //
-    // SR-6437
+    // This is in a separate variable to make the uniqueness check work in
+    // unoptimized builds; see https://bugs.swift.org/browse/SR-6437
     let bucketCount = asNative.bucketCount
     _ = ensureUniqueNativeBuffer(withBucketCount: bucketCount)
     return asNative.values + i._nativeIndex.offset
@@ -3701,14 +3687,8 @@ extension Dictionary._Variant {
       var (i, found) = asNative._find(key, startBucket: asNative._bucket(key))
 
       if found {
-        // This is a performance optimization that was put in to ensure that we
-        // did not make a copy of self to call asNative.bucketCount over
-        // ensureUniqueNativeBefore causing at -Onone the uniqueness check to
-        // fail. This code used to be:
-        //
-        // _ = ensureUniqueNativeBuffer(withBucketCount: asNative.bucketCount)
-        //
-        // SR-6437
+        // This is in a separate variable to make the uniqueness check work in
+        // unoptimized builds; see https://bugs.swift.org/browse/SR-6437
         let bucketCount = asNative.bucketCount
         _ = ensureUniqueNativeBuffer(withBucketCount: bucketCount)
         do {
@@ -3843,14 +3823,8 @@ extension Dictionary._Variant {
       return nil
     }
 
-    // This is a performance optimization that was put in to ensure that we
-    // did not make a copy of self to call asNative.bucketCount over
-    // ensureUniqueNativeBefore causing at -Onone the uniqueness check to
-    // fail. This code used to be:
-    //
-    // ... = ensureUniqueNativeBuffer(withBucketCount: asNative.bucketCount)
-    //
-    // SR-6437
+    // This is in a separate variable to make the uniqueness check work in
+    // unoptimized builds; see https://bugs.swift.org/browse/SR-6437
     let bucketCount = asNative.bucketCount
     let (_, capacityChanged) = ensureUniqueNativeBuffer(
       withBucketCount: bucketCount)
@@ -3870,14 +3844,8 @@ extension Dictionary._Variant {
   internal mutating func nativeRemove(
     at nativeIndex: NativeIndex
   ) -> SequenceElement {
-    // This is a performance optimization that was put in to ensure that we did
-    // not make a copy of self to call asNative.bucketCount over
-    // ensureUniqueNativeBefore causing at -Onone the uniqueness check to
-    // fail. This code used to be:
-    //
-    // _ = ensureUniqueNativeBuffer(withBucketCount: asNative.bucketCount)
-    //
-    // SR-6437
+    // This is in a separate variable to make the uniqueness check work in
+    // unoptimized builds; see https://bugs.swift.org/browse/SR-6437
     let bucketCount = asNative.bucketCount
     // The provided index should be valid, so we will always mutating the
     // set buffer.  Request unique buffer.
