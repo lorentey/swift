@@ -3287,27 +3287,9 @@ extension _CocoaSet.Index: Comparable {
 }
 #endif
 
-@_frozen // FIXME(sil-serialize-all)
-@usableFromInline // FIXME(sil-serialize-all)
-internal enum SetIndexRepresentation<Element: Hashable> {
-  @usableFromInline
-  typealias _Index = SetIndex<Element>
-  @usableFromInline
-  typealias _NativeIndex = _Index._NativeIndex
-#if _runtime(_ObjC)
-  @usableFromInline
-  typealias _CocoaIndex = _Index._CocoaIndex
-#endif
-
-  case _native(_NativeIndex)
-#if _runtime(_ObjC)
-  case _cocoa(_CocoaIndex)
-#endif
-}
-
 extension Set {
   /// The position of an element in a set.
-  @_fixed_layout // FIXME(sil-serialize-all)
+  @_fixed_layout
   public struct Index {
     // Index for native buffer is efficient.  Index for bridged NSSet is
     // not, because neither NSEnumerator nor fast enumeration support moving
@@ -3316,67 +3298,72 @@ extension Set {
     // safe to copy the state.  So, we cannot implement Index that is a value
     // type for bridged NSSet in terms of Cocoa enumeration facilities.
 
+    @_frozen
     @usableFromInline
-    internal typealias _NativeIndex = _NativeSet<Element>.Index
+    internal enum _Variant {
+      case _native(_NativeSet<Element>.Index)
 #if _runtime(_ObjC)
-    @usableFromInline
-    internal typealias _CocoaIndex = _CocoaSet.Index
+      case _cocoa(_CocoaSet.Index)
 #endif
-
-    @inlinable // FIXME(sil-serialize-all)
-    internal init(_value: SetIndexRepresentation<Element>) {
-      self._value = _value
     }
 
     @usableFromInline // FIXME(sil-serialize-all)
-    internal var _value: SetIndexRepresentation<Element>
+    internal var _variant: _Variant
 
     @inlinable // FIXME(sil-serialize-all)
-    internal static func _native(_ index: _NativeIndex) -> Index {
-      return SetIndex(_value: ._native(index))
+    internal init(_variant: _Variant) {
+      self._variant = _variant
     }
-#if _runtime(_ObjC)
-    @inlinable // FIXME(sil-serialize-all)
-    internal static func _cocoa(_ index: _CocoaIndex) -> Index {
-      return SetIndex(_value: ._cocoa(index))
-    }
-#endif
-
-    @usableFromInline @_transparent
-    internal var _guaranteedNative: Bool {
-      return _canBeClass(Element.self) == 0
-    }
-
-    @usableFromInline @_transparent
-    internal var _nativeIndex: _NativeIndex {
-      switch _value {
-      case ._native(let nativeIndex):
-        return nativeIndex
-#if _runtime(_ObjC)
-      case ._cocoa:
-        _sanityCheckFailure("internal error: does not contain a native index")
-#endif
-      }
-    }
-
-#if _runtime(_ObjC)
-    @usableFromInline @_transparent
-    internal var _cocoaIndex: _CocoaIndex {
-      switch _value {
-      case ._native:
-        _sanityCheckFailure("internal error: does not contain a Cocoa index")
-      case ._cocoa(let cocoaIndex):
-        return cocoaIndex
-      }
-    }
-#endif
   }
+}
+
+extension Set.Index {
+  @inlinable
+  internal static func _native(_ index: _NativeSet<Element>.Index) -> Index {
+    return Index(_variant: ._native(index))
+  }
+
+#if _runtime(_ObjC)
+  @inlinable
+  internal static func _cocoa(_ index: _CocoaSet.Index) -> Index {
+    return Index(_variant: ._cocoa(index))
+  }
+#endif
+
+  @usableFromInline @_transparent
+  internal var _guaranteedNative: Bool {
+    return _canBeClass(Element.self) == 0
+  }
+
+  @usableFromInline @_transparent
+  internal var _nativeIndex: _NativeSet<Element>.Index {
+    switch _variant {
+    case ._native(let nativeIndex):
+      return nativeIndex
+#if _runtime(_ObjC)
+    case ._cocoa:
+      _sanityCheckFailure("internal error: does not contain a native index")
+#endif
+    }
+  }
+
+#if _runtime(_ObjC)
+  @usableFromInline @_transparent
+  internal var _cocoaIndex: _CocoaIndex {
+    switch _variant {
+    case ._native:
+      _sanityCheckFailure("internal error: does not contain a Cocoa index")
+    case ._cocoa(let cocoaIndex):
+      return cocoaIndex
+    }
+  }
+#endif
 }
 
 public typealias SetIndex<Element: Hashable> = Set<Element>.Index
 
 extension Set.Index: Equatable {
-  @inlinable // FIXME(sil-serialize-all)
+  @inlinable
   public static func == (
     lhs: Set<Element>.Index,
     rhs: Set<Element>.Index
@@ -3385,7 +3372,7 @@ extension Set.Index: Equatable {
       return lhs._nativeIndex == rhs._nativeIndex
     }
 
-    switch (lhs._value, rhs._value) {
+    switch (lhs._variant, rhs._variant) {
     case (._native(let lhsNative), ._native(let rhsNative)):
       return lhsNative == rhsNative
   #if _runtime(_ObjC)
@@ -3399,7 +3386,7 @@ extension Set.Index: Equatable {
 }
 
 extension Set.Index: Comparable {
-  @inlinable // FIXME(sil-serialize-all)
+  @inlinable
   public static func < (
     lhs: Set<Element>.Index,
     rhs: Set<Element>.Index
@@ -3408,7 +3395,7 @@ extension Set.Index: Comparable {
       return lhs._nativeIndex < rhs._nativeIndex
     }
 
-    switch (lhs._value, rhs._value) {
+    switch (lhs._variant, rhs._variant) {
     case (._native(let lhsNative), ._native(let rhsNative)):
       return lhsNative < rhsNative
   #if _runtime(_ObjC)
@@ -3435,7 +3422,7 @@ extension Set.Index: Hashable {
       hasher.combine(_nativeIndex.offset)
       return
     }
-    switch _value {
+    switch _variant {
     case ._native(let nativeIndex):
       hasher.combine(0 as UInt8)
       hasher.combine(nativeIndex.offset)
