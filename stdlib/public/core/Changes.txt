@@ -1,0 +1,11 @@
+_RawNativeSetStorage => _SwiftRawSetStorage, _SwiftEmptySetStorage
+    .keys => .rawElements
+    .count, .bucketCount, etc. => .hashTable
+
+
+    return UnsafeMutablePointer(
+      Builtin.projectTailElems(self, _HashTable.MapEntry.self))
+
+_TypedNativeSetStorage => removed
+
+_HashableTypedNativeSetStorage => _SwiftNativeSetStorage
