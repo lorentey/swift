@@ -775,6 +775,18 @@ extension Dictionary {
     get {
       return _variant.maybeGet(key)
     }
+    _modify {
+      var (bucket, idealBucket, value) =
+        _modifyPrepare(key: key)
+      let found = (value == nil)
+      yield &value
+      _modifyApply(
+        key: key,
+        value: value,
+        bucket: bucket,
+        idealBucket: idealBucket,
+        found: found)
+    }
     set(newValue) {
       if let x = newValue {
         // FIXME(performance): this loads and discards the old value.
@@ -785,6 +797,31 @@ extension Dictionary {
         removeValue(forKey: key)
       }
     }
+  }
+
+  public mutating func _modifyPrepare(
+    key: Key
+  ) -> (
+    bucket: Int,
+    idealBucket: Int,
+    value: Value?
+  ) {
+    return _variant.modifyPrepare(key: key)
+  }
+
+  public mutating func _modifyApply(
+    key: Key,
+    value: __owned Value?,
+    bucket: Int,
+    idealBucket: Int,
+    found: Bool
+  ) {
+    return _variant.modifyApply(
+      key: key,
+      value: value,
+      bucket: bucket,
+      idealBucket: idealBucket,
+      found: found)
   }
 }
 
@@ -2369,6 +2406,21 @@ internal struct _NativeDictionary<Key, Value> {
     _storage.initializedEntries[i] = false
   }
 
+  @inlinable
+  internal func moveValue(at bucket: Int) -> Value {
+    defer { _fixLifetime(self) }
+    return (values + bucket).move()
+  }
+
+  // This assumes the value is already deinitialized.
+  @inlinable
+  internal func destroyHalfEntry(at bucket: Int) {
+    _sanityCheck(isInitializedEntry(at: bucket))
+    defer { _fixLifetime(self) }
+    (keys + bucket).deinitialize(count: 1)
+    _storage.initializedEntries[bucket] = false
+  }
+
   @usableFromInline @_transparent
   internal func initializeKey(_ k: Key, value v: Value, at i: Int) {
     _sanityCheck(!isInitializedEntry(at: i))
@@ -2633,6 +2685,13 @@ extension _NativeDictionary where Key: Hashable {
 
     // remove the element
     destroyEntry(at: bucket)
+    _deleteDestroyed(idealBucket: idealBucket, bucket: bucket)
+  }
+
+  @inlinable // FIXME(sil-serialize-all)
+  internal mutating func _deleteDestroyed(idealBucket: Int, bucket: Int) {
+    _sanityCheck(!isInitializedEntry(at: bucket), "expected initialized entry")
+
     self.count -= 1
 
     // If we've put a hole in a chain of contiguous elements, some
@@ -3290,7 +3349,8 @@ extension Dictionary._Variant: _DictionaryBuffer {
     }
 
     let oldDictionary = asNative
-    var newDictionary = _NativeDictionary<Key, Value>(bucketCount: desiredBucketCount)
+    var newDictionary = _NativeDictionary<Key, Value>(
+      bucketCount: desiredBucketCount)
     let newBucketCount = newDictionary.bucketCount
     for i in 0..<oldBucketCount {
       if oldDictionary.isInitializedEntry(at: i) {
@@ -3309,7 +3369,9 @@ extension Dictionary._Variant: _DictionaryBuffer {
     newDictionary.count = oldDictionary.count
 
     self = .native(newDictionary)
-    return (reallocated: true, capacityChanged: oldBucketCount != newBucketCount)
+    return (
+      reallocated: true,
+      capacityChanged: oldBucketCount != newBucketCount)
   }
 
   @inline(__always)
@@ -3538,6 +3600,56 @@ extension Dictionary._Variant: _DictionaryBuffer {
     case .cocoa(let cocoa):
       return Dictionary._Variant.maybeGetFromCocoa(cocoa, forKey: key)
 #endif
+    }
+  }
+
+  @inlinable
+  internal mutating func modifyPrepare(
+    key: Key
+  ) -> (
+    bucket: Int,
+    idealBucket: Int,
+    value: Value?
+  ) {
+    // Unfortunately we don't know if this will end up being a removal, an
+    // insertion or a simple mutation. Assume mutation or removal; if we guess
+    // wrong, we may end up copying contents twice.
+    _ = ensureUniqueNative(withCapacity: self.capacity)
+    let idealBucket = asNative._bucket(key)
+    let (pos, found) = asNative._find(key, startBucket: idealBucket)
+    if found {
+      // FIXME: Mark bucket as being modified (for lldb).
+      return (pos.bucket, idealBucket, asNative.moveValue(at: pos.bucket))
+    }
+    return (pos.bucket, idealBucket, nil)
+  }
+
+  @inlinable
+  internal mutating func modifyApply(
+    key: Key,
+    value: __owned Value?,
+    bucket: Int,
+    idealBucket: Int,
+    found: Bool
+  ) {
+    switch (found, value == nil) {
+    case (true, true): // Mutation
+      (asNative.values + bucket).initialize(to: value!)
+    case (true, false): // Removal
+      asNative.destroyHalfEntry(at: bucket)
+      asNative._deleteDestroyed(idealBucket: idealBucket, bucket: bucket)
+    case (false, true): // Insertion
+      let needsRealloc = capacity < count + 1
+      if needsRealloc {
+        _ = ensureUniqueNative(withCapacity: count + 1)
+        let (p, f) = asNative._find(key)
+        _sanityCheck(!f)
+        asNative.initializeKey(key, value: value!, at: p.bucket)
+      } else {
+        asNative.initializeKey(key, value: value!, at: bucket)
+      }
+    case (false, false): // Noop
+      break
     }
   }
 
