@@ -440,7 +440,7 @@ extension Set: Equatable {
 
   #if _runtime(_ObjC)
     case (.cocoa(let lhsCocoa), .cocoa(let rhsCocoa)):
-      return _stdlib_NSObject_isEqual(lhsCocoa.object, rhsCocoa.object)
+      return lhsCocoa == rhsCocoa
 
     case (.native(let lhsNative), .cocoa(let rhsCocoa)):
       if lhsNative.count != rhsCocoa.count {
@@ -2495,6 +2495,13 @@ internal struct _CocoaSet {
   }
 }
 
+extension _CocoaSet: Equatable {
+  @usableFromInline
+  internal static func ==(lhs: _CocoaSet, rhs: _CocoaSet) -> Bool {
+    return _stdlib_NSObject_isEqual(lhs.object, rhs.object)
+  }
+}
+
 extension _CocoaSet: _SetBuffer {
   @usableFromInline
   internal typealias Element = AnyObject
@@ -2558,7 +2565,7 @@ extension _CocoaSet: _SetBuffer {
     return object.member(object) != nil
   }
 
-  @inlinable
+  @usableFromInline
   internal func element(at i: Index) -> AnyObject {
     let value: AnyObject? = i.allKeys[i.currentKeyIndex]
     _sanityCheck(value != nil, "Item not found in underlying NSSet")
