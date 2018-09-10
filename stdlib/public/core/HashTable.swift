@@ -66,13 +66,13 @@ extension _HashTable {
   }
 
   /// The inverse of the maximum hash table load factor.
-  private static var maxLoadFactorInverse: Double {
-    @inline(__always) get { return 100 / 75 }
+  private static var maxLoadFactor: Double {
+    @inline(__always) get { return 7 / 8 }
   }
 
   internal static func capacity(forScale scale: Int) -> Int {
     let entryCount = 1 &<< (scale + 3)
-    return Int(Double(entryCount) / maxLoadFactorInverse)
+    return Int(Double(entryCount) * maxLoadFactor)
   }
 
   @usableFromInline
@@ -85,7 +85,7 @@ extension _HashTable {
     // the maximum load factor. `capacity + 1` below ensures that we always
     // leave at least one hole.
     let minimumEntries = Swift.max(
-      Int((Double(capacity) * maxLoadFactorInverse).rounded(.up)),
+      Int((Double(capacity) / maxLoadFactor).rounded(.up)),
       capacity + 1)
     // The actual number of entries we need to allocate is the lowest power of
     // two greater than or equal to the minimum entry count. Calculate its
