@@ -92,7 +92,7 @@ extension Set : _ObjectiveCBridgeable {
     // an NSSet.
     var builder = _SetBuilder<Element>(count: s.count)
     s.enumerateObjects({ (anyMember: Any, _) in
-      builder.add(member: Swift._forceBridgeFromObjectiveC(
+      builder.add(Swift._forceBridgeFromObjectiveC(
         anyMember as AnyObject, Element.self))
     })
     result = builder.take()

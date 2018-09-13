@@ -1146,7 +1146,7 @@ public func _setUpCast<DerivedValue, BaseValue>(_ source: Set<DerivedValue>)
   -> Set<BaseValue> {
   var builder = _SetBuilder<BaseValue>(count: source.count)
   for x in source {
-    builder.add(member: x as! BaseValue)
+    builder.add(x as! BaseValue)
   }
   return builder.take()
 }
@@ -3651,7 +3651,7 @@ public struct _SetBuilder<Element: Hashable> {
   }
 
   @inlinable
-  public mutating func add(member: Element) {
+  public mutating func add(_ member: Element) {
     _precondition(_target.count < _requestedCount,
       "Can't add more members than promised")
     _target.insertNew(member)
