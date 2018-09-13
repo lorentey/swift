@@ -1821,7 +1821,7 @@ extension _NativeSet {
     }
   }
 
-  @usableFromInline @_transparent
+  @inlinable
   internal var elements: UnsafeMutablePointer<Element> {
     @inline(__always)
     get {
@@ -1836,19 +1836,22 @@ extension _NativeSet {
     }
   }
 
-  @usableFromInline @_transparent
+  @inlinable
+  @inline(__always)
   internal func uncheckedElement(at index: Index) -> Element {
     _sanityCheck(hashTable.isOccupied(index))
     return elements[index.bucket]
   }
 
-  @usableFromInline @_transparent
+  @inlinable
+  @inline(__always)
   internal func uncheckedDestroy(at index: Index) {
     _sanityCheck(hashTable.isValid(index))
     (elements + index.bucket).deinitialize(count: 1)
   }
 
-  @usableFromInline @_transparent
+  @inlinable
+  @inline(__always)
   internal func uncheckedInitialize(at index: Index, to element: Element) {
     _sanityCheck(hashTable.isValid(index))
     (elements + index.bucket).initialize(to: element)
@@ -2932,9 +2935,11 @@ extension Set._Variant: _SetBuffer {
     }
   }
 
-  @usableFromInline @_transparent
+  @inlinable
   internal var guaranteedNative: Bool {
-    return _canBeClass(Element.self) == 0
+    @inline(__always) get {
+      return _canBeClass(Element.self) == 0
+    }
   }
 
   @inlinable
@@ -3309,26 +3314,30 @@ extension Set.Index {
   }
 #endif
 
-  @usableFromInline @_transparent
+  @inlinable
   internal var _asNative: _NativeSet<Element>.Index {
-    switch _variant {
-    case .native(let nativeIndex):
-      return nativeIndex
+    @inline(__always) get {
+      switch _variant {
+      case .native(let nativeIndex):
+        return nativeIndex
 #if _runtime(_ObjC)
-    case .cocoa:
-      _sanityCheckFailure("internal error: does not contain a native index")
+      case .cocoa:
+        _sanityCheckFailure("internal error: does not contain a native index")
 #endif
+      }
     }
   }
 
 #if _runtime(_ObjC)
-  @usableFromInline @_transparent
+  @inlinable
   internal var _asCocoa: _CocoaSet.Index {
-    switch _variant {
-    case .native:
-      _sanityCheckFailure("internal error: does not contain a Cocoa index")
-    case .cocoa(let cocoaIndex):
-      return cocoaIndex
+    @inline(__always) get {
+      switch _variant {
+      case .native:
+        _sanityCheckFailure("internal error: does not contain a Cocoa index")
+      case .cocoa(let cocoaIndex):
+        return cocoaIndex
+      }
     }
   }
 #endif
@@ -3567,9 +3576,9 @@ extension Set.Iterator {
   }
 #endif
 
-  @usableFromInline @_transparent
+  @inlinable
   internal var _asNative: _NativeSet<Element>.Iterator {
-    get {
+    @inline(__always) get {
       switch _variant {
       case .native(let nativeIterator):
         return nativeIterator
