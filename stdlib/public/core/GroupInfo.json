@@ -172,7 +172,7 @@
     "SipHash.swift",
     "AnyHashable.swift",
     "Hashing.swift",
-    "Bitmap.swift"  
+    "Bitset.swift"  
   ],
   "Misc": [
     "Interval.swift",
@@ -196,7 +196,6 @@
     "CommandLine.swift",
     "Tuple.swift",
     "NewtypeWrapper.swift",
-    "UnsafeBitMap.swift",
     "DebuggerSupport.swift",
     "Equatable.swift",
     "Comparable.swift",

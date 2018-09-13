@@ -83,49 +83,27 @@ extension _UnsafeBitset {
   }
 
   @inlinable
-  internal func contains(_ element: Int) -> Bool {
-    _precondition(isValid(element), "Value out of bounds")
-    return uncheckedContains(element)
-  }
-
-  @inlinable
   @inline(__always)
   internal func uncheckedContains(_ element: Int) -> Bool {
-    _sanityCheck(isValid(element), "Value out of bounds")
+    _sanityCheck(isValid(element))
     let (word, bit) = _UnsafeBitset.split(element)
     return words[word].uncheckedContains(bit)
   }
 
   @inlinable
-  @discardableResult
-  internal mutating func insert(
-    _ element: Int
-  ) -> (inserted: Bool, memberAfterInsert: Int) {
-    _precondition(isValid(element), "Value out of bounds")
-    return (uncheckedInsert(element), element)
-  }
-
-  @inlinable
   @inline(__always)
   @discardableResult
-  internal mutating func uncheckedInsert(_ element: Int) -> Bool {
-    _sanityCheck(isValid(element), "Value out of bounds")
+  internal func uncheckedInsert(_ element: Int) -> Bool {
+    _sanityCheck(isValid(element))
     let (word, bit) = _UnsafeBitset.split(element)
     return words[word].uncheckedInsert(bit)
   }
 
   @inlinable
-  @discardableResult
-  internal mutating func remove(_ element: Int) -> Int? {
-    _precondition(isValid(element), "Value out of bounds")
-    return uncheckedRemove(element) ? element : nil
-  }
-
-  @inlinable
   @inline(__always)
   @discardableResult
-  internal mutating func uncheckedRemove(_ element: Int) -> Bool {
-    _sanityCheck(isValid(element), "Value out of bounds")
+  internal func uncheckedRemove(_ element: Int) -> Bool {
+    _sanityCheck(isValid(element))
     let (word, bit) = _UnsafeBitset.split(element)
     return words[word].uncheckedRemove(bit)
   }
@@ -164,17 +142,17 @@ extension _UnsafeBitset: Sequence {
   @_fixed_layout
   internal struct Iterator: IteratorProtocol {
     @usableFromInline
-    internal let bitmap: _UnsafeBitset
+    internal let bitset: _UnsafeBitset
     @usableFromInline
     internal var index: Int
     @usableFromInline
     internal var word: Word
 
     @inlinable
-    internal init(_ bitmap: _UnsafeBitset) {
-      self.bitmap = bitmap
+    internal init(_ bitset: _UnsafeBitset) {
+      self.bitset = bitset
       self.index = 0
-      self.word = bitmap.wordCount > 0 ? bitmap.words[0] : .empty
+      self.word = bitset.wordCount > 0 ? bitset.words[0] : .empty
     }
 
     @inlinable
@@ -182,9 +160,9 @@ extension _UnsafeBitset: Sequence {
       if let bit = word.next() {
         return _UnsafeBitset.join(word: index, bit: bit)
       }
-      while (index + 1) < bitmap.wordCount {
+      while (index + 1) < bitset.wordCount {
         index += 1
-        word = bitmap.words[index]
+        word = bitset.words[index]
         if let bit = word.next() {
           return _UnsafeBitset.join(word: index, bit: bit)
         }
@@ -370,42 +348,45 @@ internal struct _Bitset {
   typealias Word = _UnsafeBitset.Word
 
   @usableFromInline
-  internal var _count: Int
+  internal var count: Int
 
   @usableFromInline
-  internal var _word0: Word
+  internal var word0: Word
 
   @usableFromInline
-  internal var _storage: Storage?
+  internal var storage: Storage?
 
   @inlinable
   internal init(capacity: Int) {
     _sanityCheck(capacity >= 0)
-    _count = 0
-    _word0 = 0
+    self.count = 0
     let wordCount = _UnsafeBitset.wordCount(forCapacity: capacity)
-    _storage = wordCount > 1 ? Storage.allocate(wordCount: wordCount - 1) : nil
+    self.word0 = .empty
+    self.storage = (wordCount > 1
+      ? Storage.allocate(wordCount: wordCount - 1)
+      : nil)
+    _sanityCheck(self.capacity >= capacity)
   }
 }
 
 extension _Bitset {
   @inlinable
   @inline(__always)
-  internal func _isValid(_ element: Int) -> Bool {
-    return element >= 0 && element <= _bitCount
+  internal func isValid(_ element: Int) -> Bool {
+    return element >= 0 && element <= capacity
   }
 
   @inlinable
   @inline(__always)
   internal mutating func isUniquelyReferenced() -> Bool {
-    return _isUnique_native(&_storage)
+    return _isUnique_native(&storage)
   }
   @inlinable
   @inline(__always)
   internal mutating func ensureUnique() {
     let isUnique = isUniquelyReferenced()
-    if !isUnique, let storage = _storage {
-      _storage = storage.copy()
+    if !isUnique, let storage = self.storage {
+      self.storage = storage.copy()
     }
   }
 }
@@ -421,30 +402,30 @@ extension _Bitset {
   @inlinable
   @inline(__always)
   internal func uncheckedContains(_ element: Int) -> Bool {
-    _sanityCheck(_isValid(element))
+    _sanityCheck(isValid(element))
     if element < Word.capacity {
-      return _word0.uncheckedContains(element)
+      return word0.uncheckedContains(element)
     }
-    defer { _fixLifetime(_storage) }
-    return _storage!.bitmap.uncheckedContains(element &- Word.capacity)
+    defer { _fixLifetime(storage) }
+    return storage!.bitset.uncheckedContains(element &- Word.capacity)
   }
 
   @inlinable
   @inline(__always)
   @discardableResult
   internal mutating func uncheckedInsert(_ element: Int) -> Bool {
-    _sanityCheck(_isValid(element))
+    _sanityCheck(isValid(element))
     let inserted: Bool
     if element < Word.capacity {
-      inserted = _word0.uncheckedInsert(element)
+      inserted = word0.uncheckedInsert(element)
     } else {
       ensureUnique()
-      defer { _fixLifetime(_storage) }
-      inserted = _storage!.bitmap.uncheckedInsert(element &- Word.capacity)
+      defer { _fixLifetime(storage) }
+      inserted = storage!.bitset.uncheckedInsert(element &- Word.capacity)
     }
     if inserted {
-      _count += 1
-      _sanityCheck(_count <= capacity)
+      count += 1
+      _sanityCheck(count <= capacity)
     }
     return inserted
   }
@@ -453,18 +434,18 @@ extension _Bitset {
   @inline(__always)
   @discardableResult
   internal mutating func uncheckedRemove(_ element: Int) -> Bool {
-    _sanityCheck(_isValid(element))
+    _sanityCheck(isValid(element))
     let removed: Bool
     if element < Word.capacity {
-      removed = _word0.uncheckedRemove(element)
+      removed = word0.uncheckedRemove(element)
     } else {
       ensureUnique()
-      defer { _fixLifetime(_storage) }
-      removed = _storage!.bitmap.uncheckedRemove(element &- Word.capacity)
+      defer { _fixLifetime(storage) }
+      removed = storage!.bitset.uncheckedRemove(element &- Word.capacity)
     }
     if removed {
-      _count -= 1
-      _sanityCheck(_count >= 0)
+      count -= 1
+      _sanityCheck(count >= 0)
     }
     return removed
   }
@@ -475,13 +456,8 @@ extension _Bitset: Sequence {
   internal typealias Element = Int
 
   @inlinable
-  internal var count: Int {
-    @inline(__always) get { return _count }
-  }
-
-  @inlinable
   internal var underestimatedCount: Int {
-    @inline(__always) get { return _count }
+    @inline(__always) get { return count }
   }
 
   @inlinable
@@ -493,32 +469,32 @@ extension _Bitset: Sequence {
   @_fixed_layout
   internal struct Iterator: IteratorProtocol {
     @usableFromInline
-    internal var _word: Word
+    internal var word: Word
     @usableFromInline
-    internal var _wordIndex: Int
+    internal var wordIndex: Int
     @usableFromInline
-    internal let _storage: Storage?
+    internal let storage: Storage?
 
     @inlinable
-    internal init(_ bitmap: _Bitmap) {
-      self._word = bitmap._word0
-      self._wordIndex = 0
-      self._storage = bitmap._storage
+    internal init(_ bitset: _Bitset) {
+      self.word = bitset.word0
+      self.wordIndex = 0
+      self.storage = bitset.storage
     }
 
     @inlinable
     internal mutating func next() -> Int? {
-      if let v = _word.next() {
-        return _wordIndex * Word.bitWidth + v
+      if let v = word.next() {
+        return wordIndex * Word.capacity + v
       }
-      guard let storage = _storage else { return nil }
-      while _wordIndex < storage._wordCount {
-        _word = storage._words[_wordIndex]
+      guard let storage = self.storage else { return nil }
+      while wordIndex < storage._wordCount {
+        word = storage._words[wordIndex]
         // Note that _wordIndex is offset by 1 due to word0;
         // this is why the index needs to be incremented at exactly this point.
-        _wordIndex += 1
-        if let v = _word.next() {
-          return _wordIndex * Word.bitWidth + v
+        wordIndex += 1
+        if let v = word.next() {
+          return wordIndex * Word.capacity + v
         }
       }
       return nil
@@ -545,7 +521,7 @@ extension _Bitset {
 
 extension _Bitset.Storage {
   @usableFromInline
-  internal typealias Word = _Bitmap.Word
+  internal typealias Word = _Bitset.Word
 
   internal static func _allocateUninitialized(
     wordCount: Int
@@ -559,8 +535,7 @@ extension _Bitset.Storage {
 
   @usableFromInline
   @_effects(releasenone)
-  internal static func allocate(bitCount: Int) -> _Bitset.Storage {
-    let wordCount = _Bitset.Storage.wordCount(forBitCount: bitCount)
+  internal static func allocate(wordCount: Int) -> _Bitset.Storage {
     let storage = _allocateUninitialized(wordCount: wordCount)
     storage._words.initialize(repeating: .empty, count: storage._wordCount)
     return storage
@@ -588,11 +563,5 @@ extension _Bitset.Storage {
     @inline(__always) get {
       return _UnsafeBitset(words: _words, wordCount: _wordCount)
     }
-  }
-
-  @inlinable
-  @inline(__always)
-  internal func _isValid(_ word: Int) -> Bool {
-    return word >= 0 && word < _wordCount
   }
 }

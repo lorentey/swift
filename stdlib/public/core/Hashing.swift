@@ -137,18 +137,18 @@ internal final class _BridgingHashBuffer {
   }
 
   internal subscript(index: _HashTable.Index) -> AnyObject {
-    _sanityCheck(index.offset >= 0 && index.offset < _entryCount)
-    return _baseAddress[index.offset]
+    _sanityCheck(index.bucket >= 0 && index.bucket < _entryCount)
+    return _baseAddress[index.bucket]
   }
 
   internal func initialize(at index: _HashTable.Index, to object: AnyObject) {
-    _sanityCheck(index.offset >= 0 && index.offset < _entryCount)
-    (_baseAddress + index.offset).initialize(to: object)
+    _sanityCheck(index.bucket >= 0 && index.bucket < _entryCount)
+    (_baseAddress + index.bucket).initialize(to: object)
   }
 
-  internal func invalidate(with indices: _HashTable.Indices) {
+  internal func invalidate(_ indices: _HashTable) {
     for index in indices {
-      (_baseAddress + index.offset).deinitialize(count: 1)
+      (_baseAddress + index.bucket).deinitialize(count: 1)
     }
     _entryCount = -1
   }
