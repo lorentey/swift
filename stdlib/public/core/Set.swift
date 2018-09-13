@@ -411,12 +411,6 @@ extension Set: Collection {
   }
 }
 
-// FIXME: rdar://problem/23549059 (Optimize == for Set)
-// Look into initially trying to compare the two sets by directly comparing the
-// contents of both buffers in order. If they happen to have the exact same
-// ordering we can get the `true` response without ever hashing. If the two
-// buffers' contents differ at all then we have to fall back to hashing the
-// rest of the elements (but we don't need to hash any prefix that did match).
 extension Set: Equatable {
   /// Returns a Boolean value indicating whether two sets have equal elements.
   ///
