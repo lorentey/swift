@@ -1505,7 +1505,7 @@ internal class _SwiftRawSetStorage: _SwiftNativeNSSet {
 /// The single instance of this class is created by the runtime.
 @_fixed_layout
 @usableFromInline
-internal class _SwiftEmptySetStorage: _SwiftRawSetStorage {
+internal class _EmptySetSingleton: _SwiftRawSetStorage {
   override internal init(_doNotCallMe: ()) {
     _sanityCheckFailure("Only create this by using the `empty` singleton")
   }
@@ -1523,14 +1523,14 @@ extension _SwiftRawSetStorage {
   /// without any elements. The contents of the storage must never be mutated.
   @inlinable
   @nonobjc
-  internal static var empty: _SwiftEmptySetStorage {
+  internal static var empty: _EmptySetSingleton {
     return Builtin.bridgeFromRawPointer(
-      Builtin.addressof(&_swiftEmptySetStorage))
+      Builtin.addressof(&_swiftEmptySetSingleton))
   }
 }
 
 
-extension _SwiftEmptySetStorage: _NSSetCore {
+extension _EmptySetSingleton: _NSSetCore {
 #if _runtime(_ObjC)
   //
   // NSSet implementation, assuming Self is the empty singleton

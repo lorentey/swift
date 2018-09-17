@@ -32,9 +32,9 @@ ClassMetadata CLASS_METADATA_SYM(s18_EmptyArrayStorage);
 SWIFT_RUNTIME_STDLIB_API
 ClassMetadata CLASS_METADATA_SYM(s27_RawNativeDictionaryStorage);
 
-// _direct type metadata for Swift._SwiftEmptySetStorage
+// _direct type metadata for Swift._EmptySetSingleton
 SWIFT_RUNTIME_STDLIB_API
-ClassMetadata CLASS_METADATA_SYM(s21_SwiftEmptySetStorage);
+ClassMetadata CLASS_METADATA_SYM(s18_EmptySetSingleton);
 } // namespace swift
 
 SWIFT_RUNTIME_STDLIB_API
@@ -80,10 +80,10 @@ swift::_SwiftEmptyDictionaryStorage swift::_swiftEmptyDictionaryStorage = {
 };
 
 SWIFT_RUNTIME_STDLIB_API
-swift::_SwiftEmptySetStorage swift::_swiftEmptySetStorage = {
+swift::_EmptySetSingleton swift::_swiftEmptySetSingleton = {
   // HeapObject header;
   {
-    &swift::CLASS_METADATA_SYM(s21_SwiftEmptySetStorage), // isa pointer
+    &swift::CLASS_METADATA_SYM(s18_EmptySetSingleton), // isa pointer
   },
   
   // _SwiftSetBodyStorage body;
