@@ -34,11 +34,9 @@ internal struct _NativeSet<Element: Hashable> {
     self._storage = storage
   }
 
-  @usableFromInline
-  @_effects(releasenone)
+  @inlinable
   internal init(capacity: Int) {
-    let scale = _HashTable.scale(forCapacity: capacity)
-    self._storage = _SetStorage<Element>.allocate(scale: scale)
+    self._storage = _SetStorage<Element>.allocate(capacity: capacity)
   }
 
 #if _runtime(_ObjC)
@@ -398,8 +396,9 @@ extension _NativeSet { // Deletion
   @usableFromInline
   internal mutating func removeAll(isUnique: Bool) {
     guard isUnique else {
-      let scale = self._storage._scale
-      _storage = _SetStorage<Element>.allocate(scale: scale)
+      _storage = _SetStorage<Element>.allocate(
+        scale: _storage._scale,
+        seed: _storage._seed)
       return
     }
     for index in hashTable {

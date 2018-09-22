@@ -271,7 +271,8 @@ extension _SetStorage {
     _sanityCheck(capacity >= original._count)
     let scale = _HashTable.scale(forCapacity: capacity)
     let rehash = (scale != original._scale)
-    let newStorage = _SetStorage<Element>.allocate(scale: scale)
+    let seed: Int? = rehash ? nil : original._seed
+    let newStorage = _SetStorage<Element>.allocate(scale: scale, seed: seed)
     return (newStorage, rehash)
   }
 
@@ -279,10 +280,10 @@ extension _SetStorage {
   @_effects(releasenone)
   static internal func allocate(capacity: Int) -> _SetStorage {
     let scale = _HashTable.scale(forCapacity: capacity)
-    return allocate(scale: scale)
+    return allocate(scale: scale, seed: nil)
   }
 
-  static internal func allocate(scale: Int) -> _SetStorage {
+  static internal func allocate(scale: Int, seed: Int?) -> _SetStorage {
     // The entry count must be representable by an Int value; hence the scale's
     // peculiar upper bound.
     _sanityCheck(scale >= 0 && scale < Int.bitWidth - 1)
@@ -302,16 +303,7 @@ extension _SetStorage {
     storage._capacity = _HashTable.capacity(forScale: scale)
     storage._scale = scale
     storage._rawElements = UnsafeMutableRawPointer(elementsAddr)
-
-    // We use a slightly different hash seed whenever we change the size of the
-    // hash table, so that we avoid certain copy operations becoming quadratic,
-    // without breaking value semantics. (For background details, see
-    // https://bugs.swift.org/browse/SR-3268)
-
-    // FIXME: Use true per-instance seeding instead. Per-capacity seeding still
-    // leaves hash values the same in same-sized tables, which may affect
-    // operations on two tables at once. (E.g., union.)
-    storage._seed = scale
+    storage._seed = seed ?? _HashTable.hashSeed(for: storage, scale: scale)
 
     // Initialize hash table metadata.
     storage._hashTable.clear()
