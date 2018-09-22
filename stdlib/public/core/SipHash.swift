@@ -65,11 +65,6 @@ internal struct _SipHashState {
   fileprivate func _extract() -> UInt64 {
     return v0 ^ v1 ^ v2 ^ v3
   }
-
-  @inline(__always)
-  fileprivate func _generateSeed() -> (UInt64, UInt64) {
-    return (v0 &+ v1, v2 ^ v3)
-  }
 }
 
 // FIXME: Remove @usableFromInline and @_fixed_layout once Hasher is resilient.
@@ -101,8 +96,8 @@ internal struct _SipHash13Core: _HasherCore {
   }
 
   @inline(__always)
-  internal func _generateSeed() -> (UInt64, UInt64) {
-    return _state._generateSeed()
+  internal func _generateSeed() -> UInt64 {
+    return _state._extract()
   }
 }
 
@@ -134,8 +129,8 @@ internal struct _SipHash24Core: _HasherCore {
   }
 
   @inline(__always)
-  internal func _generateSeed() -> (UInt64, UInt64) {
-    return _state._generateSeed()
+  internal func _generateSeed() -> UInt64 {
+    return _state._extract()
   }
 }
 
@@ -143,12 +138,14 @@ internal struct _SipHash24Core: _HasherCore {
 // production builds.
 @usableFromInline // @testable
 internal struct _SipHash13 {
-  internal typealias Core = _BufferingHasher<_SipHash13Core>
+  internal typealias Core = _SipHash13Core
 
-  internal var _core: Core
+  internal var _core: _BufferingHasher<Core>
 
   @usableFromInline // @testable
-  internal init(_seed: (UInt64, UInt64)) { _core = Core(seed: _seed) }
+  internal init(_seed: (UInt64, UInt64)) {
+    _core = _BufferingHasher(core: Core(seed: _seed))
+  }
   @usableFromInline // @testable
   internal mutating func _combine(_ v: UInt) { _core.combine(v) }
   @usableFromInline // @testable
@@ -178,12 +175,14 @@ internal struct _SipHash13 {
 // production builds.
 @usableFromInline // @testable
 internal struct _SipHash24 {
-  internal typealias Core = _BufferingHasher<_SipHash24Core>
+  internal typealias Core = _SipHash24Core
 
-  internal var _core: Core
+  internal var _core: _BufferingHasher<Core>
 
   @usableFromInline // @testable
-  internal init(_seed: (UInt64, UInt64)) { _core = Core(seed: _seed) }
+  internal init(_seed: (UInt64, UInt64)) {
+    _core = _BufferingHasher(core: Core(seed: _seed))
+  }
   @usableFromInline // @testable
   internal mutating func _combine(_ v: UInt) { _core.combine(v) }
   @usableFromInline // @testable
