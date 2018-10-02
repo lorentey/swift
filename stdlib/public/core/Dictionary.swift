@@ -794,6 +794,7 @@ extension Dictionary {
     get {
       return _variant.lookup(key)
     }
+    @inline(__always) // Performance
     set(newValue) {
       if let x = newValue {
         _variant.setValue(x, forKey: key)

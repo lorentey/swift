@@ -463,6 +463,7 @@ extension _NativeDictionary { // Insertions
   }
 
   @inlinable
+  @inline(__always) // Performance
   internal func _insert(
     at bucket: Bucket,
     key: __owned Key,
@@ -490,6 +491,7 @@ extension _NativeDictionary { // Insertions
   }
 
   @inlinable
+  @inline(__always) // Performance
   internal mutating func setValue(
     _ value: __owned Value,
     forKey key: Key,
