@@ -182,6 +182,9 @@ if (LLVM_USE_SANITIZER STREQUAL "Address")
   set(SWIFT_ASAN_BUILD TRUE)
 endif()
 
+list(APPEND SWIFT_LIT_ARGS
+  "--param" "availability_macros=${SWIFT_STDLIB_AVAILABILITY_DEFINITIONS}")
+
 # Normalize spelling of boolean values.
 normalize_boolean_spelling(LLVM_ENABLE_ASSERTIONS)
 normalize_boolean_spelling(SWIFT_STDLIB_ASSERTIONS)
