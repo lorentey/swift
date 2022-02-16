@@ -407,6 +407,7 @@ extension String.UnicodeScalarView {
 
   @available(swift, introduced: 4)
   public subscript(r: Range<Index>) -> String.UnicodeScalarView.SubSequence {
+    _failEarlyRangeCheck(r, bounds: startIndex..<endIndex)
     return String.UnicodeScalarView.SubSequence(self, _bounds: r)
   }
 }
