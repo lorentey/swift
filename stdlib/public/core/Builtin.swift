@@ -91,7 +91,10 @@ func _canBeClass<T>(_: T.Type) -> Int8 {
 /// Returns: A new instance of type `U`, cast from `x`.
 @inlinable // unsafe-performance
 @_transparent
-public func unsafeBitCast<T, U>(_ x: T, to type: U.Type) -> U {
+@_preInverseGenerics
+public func unsafeBitCast<T: ~Escapable, U>(
+  _ x: T, to type: U.Type
+) -> U {
   _precondition(MemoryLayout<T>.size == MemoryLayout<U>.size,
     "Can't unsafeBitCast between types of different sizes")
   return Builtin.reinterpretCast(x)
